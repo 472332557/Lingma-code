@@ -1,0 +1,39 @@
+# 服务器配置
+server:
+  port: 8080
+
+# Spring配置
+spring:
+  # 数据源配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/login_system?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: lzc2025666
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    type: com.zaxxer.hikari.HikariDataSource
+    hikari:
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      maximum-pool-size: 20
+      minimum-idle: 5
+
+# MyBatis Plus配置
+mybatis-plus:
+  # 配置逻辑删除
+  global-config:
+    db-config:
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  # 配置SQL打印
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# JWT配置
+jwt:
+  # 密钥
+  secret: mySecretKey
+  # token过期时间(单位：毫秒)，这里设置为24小时
+  expiration: 86400000
+  # token在header中的名称
+  header: Authorization
