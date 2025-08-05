@@ -6,6 +6,7 @@
 *.iml
 out
 gen
+*.class
 
 # 忽略编译产物
 target/
