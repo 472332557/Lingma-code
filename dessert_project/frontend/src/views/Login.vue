@@ -44,6 +44,10 @@
       <router-link class="form-link" to="/register">
         没有账号？立即注册
       </router-link>
+      <br>
+      <router-link class="form-link" to="/reset-password">
+        忘记密码？
+      </router-link>
     </div>
   </div>
 </template>

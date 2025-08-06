@@ -25,5 +25,13 @@ public interface UserService extends IService<User> {
      * @return 注册成功的用户信息
      */
     User register(String username, String password);
+    
+    /**
+     * 重置用户密码
+     * @param username 用户名
+     * @param newPassword 新密码
+     * @return 是否重置成功
+     */
+    boolean resetPassword(String username, String newPassword);
 
 }

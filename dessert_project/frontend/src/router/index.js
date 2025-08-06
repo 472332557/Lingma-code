@@ -5,6 +5,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import Login from '@/views/Login.vue';
 import Register from '@/views/Register.vue';
 import Home from '@/views/Home.vue';
+import ResetPassword from '@/views/ResetPassword.vue';
 
 // 定义路由
 const routes = [
@@ -17,6 +18,11 @@ const routes = [
     path: '/register',
     name: 'Register',
     component: Register
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: ResetPassword
   },
   {
     path: '/home',
@@ -49,7 +55,7 @@ router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token');
   
   // 如果访问的不是登录页和注册页，且没有token，则跳转到登录页
-  if (to.name !== 'Login' && to.name !== 'Register' && !token) {
+  if (to.name !== 'Login' && to.name !== 'Register' && to.name !== 'ResetPassword' && !token) {
     next({ name: 'Login' });
   } else {
     // 否则正常跳转

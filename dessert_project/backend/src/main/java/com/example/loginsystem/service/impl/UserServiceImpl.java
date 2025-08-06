@@ -29,6 +29,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     /**
      * BCrypt密码加密器
      * 用于对用户密码进行加密和验证
+     * 注意：BCrypt是单向加密算法，无法解密，只能验证密码是否匹配
      */
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
@@ -89,4 +90,56 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 返回注册成功的用户信息
         return user;
     }
+    
+    /**
+     * 重置用户密码
+     * @param username 用户名
+     * @param newPassword 新密码
+     * @return 是否重置成功
+     */
+    @Override
+    public boolean resetPassword(String username, String newPassword) {
+        // 创建查询条件构造器
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        // 根据用户名查询用户信息
+        queryWrapper.eq("username", username);
+        User user = userMapper.selectOne(queryWrapper);
+        
+        // 判断用户是否存在
+        if (user == null) {
+            return false;
+        }
+        
+        // 更新密码
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setUpdateTime(LocalDateTime.now());
+        
+        // 更新数据库中的用户信息
+        return userMapper.updateById(user) > 0;
+    }
+    
+    /**
+     * 验证密码是否匹配（用于后台验证用户密码）
+     * @param rawPassword 明文密码
+     * @param encodedPassword 加密后的密码
+     * @return 是否匹配
+     */
+    public boolean verifyPassword(String rawPassword, String encodedPassword) {
+        return passwordEncoder.matches(rawPassword, encodedPassword);
+    }
+    
+    /**
+     * 重要说明：
+     * BCryptPasswordEncoder 使用的是单向哈希算法，这是一种安全的密码存储方式。
+     * 特点：
+     * 1. 不可逆：无法从哈希值还原回原始密码
+     * 2. 安全性高：即使数据库泄露，攻击者也无法直接获取用户密码
+     * 3. 抗彩虹表：每次加密相同密码都会产生不同的哈希值（因为盐值随机生成）
+     * 
+     * 如果需要验证密码，应该使用 passwordEncoder.matches() 方法进行匹配验证，
+     * 而不是尝试解密密码。
+     * 
+     * 示例用法：
+     * boolean isMatch = verifyPassword("用户输入的密码", "数据库中存储的加密密码");
+     */
 }

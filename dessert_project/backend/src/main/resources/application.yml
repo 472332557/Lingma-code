@@ -35,5 +35,6 @@ jwt:
   secret: mySecretKey
   # token过期时间(单位：毫秒)，这里设置为24小时
   expiration: 86400000
+#  expiration: 7200
   # token在header中的名称
   header: Authorization

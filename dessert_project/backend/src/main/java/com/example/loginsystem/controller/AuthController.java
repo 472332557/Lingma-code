@@ -3,6 +3,7 @@ package com.example.loginsystem.controller;
 import com.example.loginsystem.common.Result;
 import com.example.loginsystem.dto.LoginRequest;
 import com.example.loginsystem.dto.RegisterRequest;
+import com.example.loginsystem.dto.ResetPasswordRequest;
 import com.example.loginsystem.entity.User;
 import com.example.loginsystem.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,6 +65,29 @@ public class AuthController {
         } else {
             // 注册失败，返回错误信息
             return Result.error("用户名已存在");
+        }
+    }
+    
+    /**
+     * 重置密码接口
+     * @param resetPasswordRequest 重置密码请求参数
+     * @return 重置结果
+     */
+    @PostMapping("/reset-password")
+    public Result<String> resetPassword(@Valid @RequestBody ResetPasswordRequest resetPasswordRequest) {
+        // 调用UserService的重置密码方法
+        boolean success = userService.resetPassword(
+            resetPasswordRequest.getUsername(), 
+            resetPasswordRequest.getNewPassword()
+        );
+
+        // 判断重置是否成功
+        if (success) {
+            // 重置成功
+            return Result.success("密码重置成功");
+        } else {
+            // 重置失败，返回错误信息
+            return Result.error("用户不存在");
         }
     }
 }

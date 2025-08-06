@@ -37,3 +37,16 @@ export function authTest() {
     method: 'get'
   });
 }
+
+/**
+ * 重置密码接口
+ * @param {Object} data 重置密码参数 {username, newPassword}
+ * @returns Promise
+ */
+export function resetPassword(data) {
+  return request({
+    url: '/auth/reset-password',
+    method: 'post',
+    data
+  });
+}
