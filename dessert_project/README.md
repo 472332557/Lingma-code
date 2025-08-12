@@ -28,6 +28,8 @@
 5. 表单验证
 6. 路由守卫
 7. 响应式设计
+8. 微信支付集成
+9. 支付宝支付集成
 
 ## 项目结构
 
@@ -80,12 +82,13 @@
 ### 创建数据库
 
 ```sql
-CREATE DATABASE login_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE dessert_shop CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### 创建用户表
+### 创建表结构
 
 ```sql
+-- 用户表
 CREATE TABLE `user` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '用户ID',
   `username` varchar(50) NOT NULL COMMENT '用户名',
@@ -95,6 +98,110 @@ CREATE TABLE `user` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+
+-- 轮播图表
+CREATE TABLE `banner` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '轮播图ID',
+  `image_url` varchar(255) NOT NULL COMMENT '图片URL',
+  `link_url` varchar(255) DEFAULT NULL COMMENT '跳转链接',
+  `sort` int DEFAULT '0' COMMENT '排序字段',
+  `status` tinyint DEFAULT '1' COMMENT '状态（0:禁用 1:启用）',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='轮播图表';
+
+-- 分类表
+CREATE TABLE `category` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '分类ID',
+  `name` varchar(50) NOT NULL COMMENT '分类名称',
+  `description` varchar(255) DEFAULT NULL COMMENT '分类描述',
+  `type` tinyint NOT NULL DEFAULT '1' COMMENT '分类类型（1:甜品系列 2:其他分类）',
+  `sort` int DEFAULT '0' COMMENT '排序字段',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分类表';
+
+-- 甜品表
+CREATE TABLE `dessert` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '甜品ID',
+  `name` varchar(100) NOT NULL COMMENT '甜品名称',
+  `description` text COMMENT '甜品描述',
+  `image_url` varchar(255) NOT NULL COMMENT '甜品图片URL',
+  `price` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '甜品价格',
+  `category_id` bigint NOT NULL COMMENT '所属分类ID',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '甜品状态（0:停售 1:在售）',
+  `sort` int DEFAULT '0' COMMENT '排序字段',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_category_id` (`category_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='甜品表';
+
+-- 甜品规格表
+CREATE TABLE `dessert_spec` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '规格ID',
+  `dessert_id` bigint NOT NULL COMMENT '甜品ID',
+  `name` varchar(50) NOT NULL COMMENT '规格名称（如4寸、6寸、草莓味等）',
+  `price` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '规格价格',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_dessert_id` (`dessert_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='甜品规格表';
+
+-- 订单表
+CREATE TABLE `order_info` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '订单ID',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `order_number` varchar(50) NOT NULL COMMENT '订单编号',
+  `total_amount` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '订单总金额',
+  `status` tinyint NOT NULL DEFAULT '0' COMMENT '订单状态（0:待支付 1:已支付 2:已取消 3:已完成）',
+  `address` varchar(255) NOT NULL COMMENT '收货地址',
+  `phone` varchar(20) NOT NULL COMMENT '联系电话',
+  `remark` varchar(255) DEFAULT NULL COMMENT '备注信息',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_order_number` (`order_number`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单表';
+
+-- 订单项表
+CREATE TABLE `order_item` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '订单项ID',
+  `order_id` bigint NOT NULL COMMENT '订单ID',
+  `dessert_id` bigint NOT NULL COMMENT '甜品ID',
+  `dessert_name` varchar(100) NOT NULL COMMENT '甜品名称',
+  `image_url` varchar(255) NOT NULL COMMENT '甜品图片URL',
+  `spec_id` bigint DEFAULT NULL COMMENT '甜品规格ID',
+  `spec_name` varchar(50) DEFAULT NULL COMMENT '规格名称',
+  `price` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '单价',
+  `quantity` int NOT NULL DEFAULT '1' COMMENT '数量',
+  `subtotal` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '小计金额',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_id` (`order_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单项表';
+
+-- 地址表
+CREATE TABLE `address` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '地址ID',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `name` varchar(50) NOT NULL COMMENT '收货人姓名',
+  `phone` varchar(20) NOT NULL COMMENT '联系电话',
+  `province` varchar(50) NOT NULL COMMENT '省份',
+  `city` varchar(50) NOT NULL COMMENT '城市',
+  `district` varchar(50) NOT NULL COMMENT '区县',
+  `detail` varchar(255) NOT NULL COMMENT '详细地址',
+  `is_default` tinyint NOT NULL DEFAULT '0' COMMENT '是否默认地址（0:否 1:是）',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='地址表';
 ```
 
 ## 测试数据
@@ -118,13 +225,74 @@ VALUES (2, 'admin', '$2a$10$w95Y6.YrS90p57lOC8W8dO0z1G5XLHwk4./6gbqHwVFpD4Chb5Z9
 | testuser | password123 | 普通测试用户 |
 | admin | admin123 | 管理员测试用户 |
 
+## 微信支付集成
+
+本系统支持微信支付功能，集成步骤如下：
+
+1. 申请微信支付商户号
+2. 获取商户API密钥
+3. 配置微信支付参数到[application.yml](file:///D:/Program%20Files%20(x86)/own_project/Lingma-code/dessert_project/backend/src/main/resources/application.yml)
+4. 实现统一下单接口
+5. 处理支付回调通知
+
+### 微信支付配置示例
+
+```yaml
+# 微信支付配置
+wx:
+  pay:
+    # 微信支付商户号
+    mchId: your_mch_id
+    # 微信支付商户密钥
+    mchKey: your_mch_key
+    # 微信支付appId
+    appId: your_app_id
+    # 微信支付API地址
+    apiUrl: https://api.mch.weixin.qq.com
+    # 支付通知地址
+    notifyUrl: http://your-domain.com/api/payment/wechat/notify
+```
+
+## 支付宝支付集成
+
+本系统也支持支付宝支付功能，集成步骤如下：
+
+1. 申请支付宝开放平台应用
+2. 生成应用私钥和获取支付宝公钥
+3. 配置支付宝支付参数到[application.yml](file:///D:/Program%20Files%20(x86)/own_project/Lingma-code/dessert_project/backend/src/main/resources/application.yml)
+4. 实现支付接口
+5. 处理支付回调通知
+
+### 支付宝支付配置示例
+
+```yaml
+# 支付宝支付配置
+alipay:
+  # 应用ID
+  app-id: your_app_id
+  # 商户私钥
+  merchant-private-key: your_merchant_private_key
+  # 支付宝公钥
+  alipay-public-key: your_alipay_public_key
+  # 签名类型
+  sign-type: RSA2
+  # 字符编码格式
+  charset: UTF-8
+  # 支付宝网关地址
+  gateway-url: https://openapi.alipay.com/gateway.do
+  # 支付成功后的回调地址
+  return-url: http://your-domain.com/api/payment/alipay/return
+  # 支付成功后的异步通知地址
+  notify-url: http://your-domain.com/api/payment/alipay/notify
+```
+
 ## 后端部署
 
 1. 修改 [application.yml](file:///D:/Program%20Files%20(x86)/own_project/Lingma-code/dessert_project/backend/src/main/resources/application.yml) 文件中的数据库连接配置：
    ```yaml
    spring:
      datasource:
-       url: jdbc:mysql://localhost:3306/login_system?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+       url: jdbc:mysql://localhost:3306/dessert_shop?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
        username: root
        password: lzc2025666
    ```
@@ -277,3 +445,5 @@ VALUES (2, 'admin', '$2a$10$w95Y6.YrS90p57lOC8W8dO0z1G5XLHwk4./6gbqHwVFpD4Chb5Z9
 2. 前端默认通过代理访问后端API，代理配置在[webpack.config.js](file:///D:/Program%20Files%20(x86)/own_project/Lingma-code/dessert_project/frontend/webpack.config.js)中
 3. JWT密钥和过期时间可以在[application.yml](file:///D:/Program%20Files%20(x86)/own_project/Lingma-code/dessert_project/backend/src/main/resources/application.yml)中配置
 4. 生产环境部署时请注意修改默认密钥等敏感信息
+5. 微信支付需要在正式环境中配置真实的商户信息
+6. 支付宝支付需要在正式环境中配置真实的商户信息

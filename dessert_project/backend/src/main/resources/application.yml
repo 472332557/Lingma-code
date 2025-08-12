@@ -6,7 +6,7 @@ server:
 spring:
   # 数据源配置
   datasource:
-    url: jdbc:mysql://localhost:3306/login_system?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/login_system?useSSL=false&useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
     username: root
     password: lzc2025666
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -35,6 +35,38 @@ jwt:
   secret: mySecretKey
   # token过期时间(单位：毫秒)，这里设置为24小时
   expiration: 86400000
-#  expiration: 7200
   # token在header中的名称
   header: Authorization
+
+# 微信支付配置
+wx:
+  pay:
+    # 微信支付商户号
+    mch-id: your_mch_id
+    # 微信支付商户密钥
+    mch-key: your_mch_key
+    # 微信支付appId
+    app-id: your_app_id
+    # 微信支付API地址
+    api-url: https://api.mch.weixin.qq.com
+    # 支付通知地址
+    notify-url: http://localhost:8080/api/payment/wechat/notify
+
+# 支付宝支付配置
+alipay:
+  # 应用ID
+  app-id: your_app_id
+  # 商户私钥
+  merchant-private-key: your_merchant_private_key
+  # 支付宝公钥
+  alipay-public-key: your_alipay_public_key
+  # 签名类型
+  sign-type: RSA2
+  # 字符编码格式
+  charset: UTF-8
+  # 支付宝网关地址
+  gateway-url: https://openapi.alipay.com/gateway.do
+  # 支付成功后的回调地址
+  return-url: http://localhost:8080/api/payment/alipay/return
+  # 支付成功后的异步通知地址
+  notify-url: http://localhost:8080/api/payment/alipay/notify

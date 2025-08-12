@@ -6,11 +6,19 @@ import Login from '@/views/Login.vue';
 import Register from '@/views/Register.vue';
 import Home from '@/views/Home.vue';
 import ResetPassword from '@/views/ResetPassword.vue';
+import Order from '@/views/Order.vue';
+import Orders from '@/views/Orders.vue';
+import Profile from '@/views/Profile.vue';
 
 // 定义路由
 const routes = [
   {
     path: '/',
+    name: 'Home',
+    component: Home
+  },
+  {
+    path: '/login',
     name: 'Login',
     component: Login
   },
@@ -25,21 +33,24 @@ const routes = [
     component: ResetPassword
   },
   {
+    path: '/order',
+    name: 'Order',
+    component: Order
+  },
+  {
+    path: '/orders',
+    name: 'Orders',
+    component: Orders
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: Profile
+  },
+  {
     path: '/home',
-    name: 'Home',
-    component: Home,
-    // 路由守卫，判断是否已登录
-    beforeEnter: (to, from, next) => {
-      // 从localStorage中获取token
-      const token = localStorage.getItem('token');
-      // 如果token存在，则允许访问
-      if (token) {
-        next();
-      } else {
-        // 否则跳转到登录页
-        next('/');
-      }
-    }
+    name: 'HomeRedirect',
+    redirect: '/'
   }
 ];
 
