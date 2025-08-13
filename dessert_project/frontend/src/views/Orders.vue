@@ -95,6 +95,9 @@
 </template>
 
 <script>
+// 导入请求工具
+import request from '@/utils/request';
+
 export default {
   name: 'Orders',
   data() {
@@ -184,8 +187,27 @@ export default {
     async payOrder(orderId, paymentMethod) {
       try {
         if (paymentMethod === 'alipay') {
-          // 调用后端支付宝支付接口
-          window.open(`/api/payment/alipay?orderId=${orderId}&amount=100`, '_blank');
+          // 以隐藏表单方式POST，避免 window.open
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = '/api/payment/alipay';
+          form.style.display = 'none';
+
+          const orderIdInput = document.createElement('input');
+          orderIdInput.type = 'hidden';
+          orderIdInput.name = 'orderId';
+          orderIdInput.value = orderId;
+          form.appendChild(orderIdInput);
+
+          const amountInput = document.createElement('input');
+          amountInput.type = 'hidden';
+          amountInput.name = 'amount';
+          amountInput.value = (88).toFixed(2); // 示例金额，建议换为订单实际金额
+          form.appendChild(amountInput);
+
+          document.body.appendChild(form);
+          form.submit();
+          document.body.removeChild(form);
         } else if (paymentMethod === 'wechat') {
           // 调用后端微信支付接口
           // 实际项目中这里会跳转到微信支付页面

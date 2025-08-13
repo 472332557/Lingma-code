@@ -84,7 +84,7 @@ public class PaymentController {
      * @param response HTTP响应
      */
     @PostMapping("/alipay")
-    public void alipay(@RequestParam Long orderId, @RequestParam BigDecimal amount, HttpServletResponse response) {
+    public void alipay(@RequestParam("orderId") Long orderId, @RequestParam("amount") BigDecimal amount, HttpServletResponse response) {
         try {
             // 获取订单信息
             Order order = orderService.getById(orderId);

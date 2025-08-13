@@ -22,9 +22,15 @@ public class WebConfig implements WebMvcConfigurer {
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        // 注册认证拦截器，拦截所有/api/开头的请求，排除登录和注册接口
+        // 注册认证拦截器，拦截所有/api/开头的请求，排除登录、注册和支付相关接口
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/auth/login", "/api/auth/register");
+                .excludePathPatterns(
+                    "/api/auth/login", 
+                    "/api/auth/register",
+                    "/api/payment/**",
+                    "/api/payment/alipay/**",
+                    "/api/payment/wechat/**"
+                );
     }
 }

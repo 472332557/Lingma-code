@@ -14,13 +14,18 @@ import Profile from '@/views/Profile.vue';
 const routes = [
   {
     path: '/',
-    name: 'Home',
-    component: Home
+    name: 'RootRedirect',
+    redirect: '/login'
   },
   {
     path: '/login',
     name: 'Login',
     component: Login
+  },
+  {
+    path: '/home',
+    name: 'Home',
+    component: Home
   },
   {
     path: '/register',
@@ -47,11 +52,7 @@ const routes = [
     name: 'Profile',
     component: Profile
   },
-  {
-    path: '/home',
-    name: 'HomeRedirect',
-    redirect: '/'
-  }
+  
 ];
 
 // 创建路由实例
