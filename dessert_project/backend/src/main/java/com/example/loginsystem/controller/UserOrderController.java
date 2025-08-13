@@ -7,7 +7,10 @@ import com.example.loginsystem.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 用户订单控制器
@@ -25,9 +28,9 @@ public class UserOrderController {
      * @return 订单列表
      */
     @GetMapping("/list")
-    public Result<List<Order>> getUserOrders() {
-        // 这里应该从token中获取用户ID，示例中写死为1
-        Long userId = 1L;
+    public Result<List<Order>> getUserOrders(HttpServletRequest request) {
+        // 从请求属性中获取用户ID
+        Long userId = (Long) request.getAttribute("userId");
 
         // 获取用户订单列表
         List<Order> orders = orderService.getOrdersByUserId(userId);
@@ -42,19 +45,27 @@ public class UserOrderController {
      * @return 订单创建结果
      */
     @PostMapping("/create")
-    public Result<String> createOrder(@RequestBody PaymentRequestDTO paymentRequest) {
-        // 这里应该从token中获取用户ID，示例中写死为1
-        Long userId = 1L;
+    public Result<Map<String, Object>> createOrder(@RequestBody PaymentRequestDTO paymentRequest, HttpServletRequest request) {
+        try {
+            // 从请求属性中获取用户ID
+            Long userId = (Long) request.getAttribute("userId");
 
-        // TODO: 实际项目中需要实现订单创建逻辑
-        // 1. 验证商品和规格是否存在
-        // 2. 计算订单总金额
-        // 3. 生成订单号
-        // 4. 保存订单和订单项
-        // 5. 返回支付信息
+            // 创建订单
+            Order order = orderService.createOrder(userId, paymentRequest);
 
-        // 示例中直接返回成功
-        return Result.success("订单创建成功");
+            // 创建返回数据
+            Map<String, Object> data = new HashMap<>();
+            data.put("orderId", order.getId());
+            data.put("orderNumber", order.getOrderNumber());
+            data.put("totalAmount", order.getTotalAmount());
+            data.put("message", "订单创建成功");
+
+            // 返回结果
+            return Result.success(data);
+        } catch (Exception e) {
+            // 返回错误信息
+            return Result.error(e.getMessage());
+        }
     }
 
     /**
@@ -63,13 +74,37 @@ public class UserOrderController {
      * @return 支付结果
      */
     @PostMapping("/pay/{orderId}")
-    public Result<String> payOrder(@PathVariable Long orderId) {
-        // 这里应该从token中获取用户ID，示例中写死为1
-        Long userId = 1L;
+    public Result<Map<String, Object>> payOrder(@PathVariable Long orderId, HttpServletRequest request) {
+        try {
+            // 从请求属性中获取用户ID
+            Long userId = (Long) request.getAttribute("userId");
 
-        // TODO: 实际项目中需要集成微信支付等第三方支付平台
-        // 示例中直接返回成功
+            // 获取订单信息
+            Order order = orderService.getById(orderId);
+            if (order == null) {
+                return Result.error("订单不存在");
+            }
 
-        return Result.success("支付成功");
+            // 检查订单是否属于当前用户
+            if (!order.getUserId().equals(userId)) {
+                return Result.error("无权限操作该订单");
+            }
+
+            // 更新订单状态为已支付
+            order.setStatus(1); // 已支付状态
+            order.setUpdateTime(java.time.LocalDateTime.now());
+            orderService.updateById(order);
+
+            // 创建返回数据
+            Map<String, Object> data = new HashMap<>();
+            data.put("orderId", orderId);
+            data.put("message", "支付成功");
+
+            // 返回结果
+            return Result.success(data);
+        } catch (Exception e) {
+            // 返回错误信息
+            return Result.error("支付失败: " + e.getMessage());
+        }
     }
 }

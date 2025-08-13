@@ -145,7 +145,26 @@ export default {
       activeTab: 'orders'
     };
   },
+  mounted() {
+    // 页面加载时获取订单列表
+    this.fetchOrders();
+  },
   methods: {
+    /**
+     * 获取订单列表
+     */
+    async fetchOrders() {
+      try {
+        // 实际项目中这里会调用后端API获取订单列表
+        // const response = await api.get('/api/user/order/list');
+        // if (response.data.code === 200) {
+        //   this.orders = response.data.data;
+        // }
+      } catch (error) {
+        console.error('获取订单列表失败:', error);
+      }
+    },
+    
     /**
      * 获取订单状态文本
      */
@@ -162,14 +181,19 @@ export default {
     /**
      * 支付订单
      */
-    payOrder(orderId, paymentMethod) {
-      // 实际项目中这里会跳转到支付页面
-      alert(`使用${paymentMethod === 'wechat' ? '微信' : '支付宝'}支付订单 ${orderId}`);
-      
-      // 这里可以调用后端支付接口
-      // 如果是支付宝支付，可能需要在新窗口打开支付页面
-      if (paymentMethod === 'alipay') {
-        // 示例：window.open(`/api/payment/alipay?orderId=${orderId}&amount=100`, '_blank');
+    async payOrder(orderId, paymentMethod) {
+      try {
+        if (paymentMethod === 'alipay') {
+          // 调用后端支付宝支付接口
+          window.open(`/api/payment/alipay?orderId=${orderId}&amount=100`, '_blank');
+        } else if (paymentMethod === 'wechat') {
+          // 调用后端微信支付接口
+          // 实际项目中这里会跳转到微信支付页面
+          alert(`使用微信支付订单 ${orderId}`);
+        }
+      } catch (error) {
+        console.error('支付失败:', error);
+        alert('支付失败，请稍后重试');
       }
     },
 

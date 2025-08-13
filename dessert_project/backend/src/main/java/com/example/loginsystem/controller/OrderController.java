@@ -14,7 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Collections;
+import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -40,7 +41,10 @@ public class OrderController {
      * @return 分类列表
      */
     @GetMapping("/categories")
-    public Result<List<Category>> getAllCategories() {
+    public Result<List<Category>> getAllCategories(HttpServletRequest request) {
+        // 从请求属性中获取用户ID（如果需要）
+        Long userId = (Long) request.getAttribute("userId");
+
         // 获取所有分类
         List<Category> categories = categoryService.getAllCategories();
 
@@ -54,7 +58,10 @@ public class OrderController {
      * @return 甜品列表
      */
     @GetMapping("/desserts")
-    public Result<List<DessertListDTO>> getDessertsByCategory(@RequestParam(required = false) Long categoryId) {
+    public Result<List<DessertListDTO>> getDessertsByCategory(@RequestParam(required = false) Long categoryId, HttpServletRequest request) {
+        // 从请求属性中获取用户ID（如果需要）
+        Long userId = (Long) request.getAttribute("userId");
+        
         List<Category> categories;
 
         // 如果categoryId为空，则获取所有分类
@@ -66,8 +73,9 @@ public class OrderController {
             if (category == null) {
                 return Result.error("分类不存在");
             }
-//            categories = List.of(category);
-            categories = Collections.singletonList(category);
+            // 使用JDK 1.8兼容的方式创建包含单个元素的列表
+            categories = new ArrayList<>();
+            categories.add(category);
         }
 
         // 转换为甜品列表DTO
@@ -94,7 +102,10 @@ public class OrderController {
      * @return 甜品详情
      */
     @GetMapping("/dessert-detail")
-    public Result<DessertDetailDTO> getDessertDetail(@RequestParam Long dessertId) {
+    public Result<DessertDetailDTO> getDessertDetail(@RequestParam Long dessertId, HttpServletRequest request) {
+        // 从请求属性中获取用户ID（如果需要）
+        Long userId = (Long) request.getAttribute("userId");
+        
         // 获取甜品详情
         Dessert dessert = dessertService.getDessertDetail(dessertId);
         if (dessert == null) {

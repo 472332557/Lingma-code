@@ -45,6 +45,12 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
 
+        // 从token中获取用户ID并设置到请求属性中
+        Long userId = jwtUtil.getUserIdFromToken(token);
+        if (userId != null) {
+            request.setAttribute("userId", userId);
+        }
+
         // token有效，继续执行
         return true;
     }

@@ -38,10 +38,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * 用户登录方法
      * @param username 用户名
      * @param password 密码
-     * @return 生成的JWT token
+     * @return 登录成功的用户对象，如果登录失败则返回null
      */
     @Override
-    public String login(String username, String password) {
+    public User login(String username, String password) {
         // 创建查询条件构造器
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         // 根据用户名查询用户信息
@@ -50,8 +50,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         // 判断用户是否存在且密码正确
         if (user != null && passwordEncoder.matches(password, user.getPassword())) {
-            // 生成并返回JWT token
-            return jwtUtil.generateToken(username);
+            // 返回用户对象
+            return user;
         }
 
         // 用户不存在或密码错误，返回null
@@ -70,43 +70,51 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         // 根据用户名查询用户信息
         queryWrapper.eq("username", username);
+        User existingUser = userMapper.selectOne(queryWrapper);
+
         // 判断用户名是否已存在
-        if (userMapper.selectCount(queryWrapper) > 0) {
+        if (existingUser != null) {
             // 用户名已存在，返回null
             return null;
         }
 
         // 创建新用户对象
-        User user = new User();
-        user.setUsername(username);
-        // 对密码进行加密存储
-        user.setPassword(passwordEncoder.encode(password));
-        user.setCreateTime(LocalDateTime.now());
-        user.setUpdateTime(LocalDateTime.now());
+        User newUser = new User();
+        newUser.setUsername(username);
+        // 对密码进行BCrypt加密
+        newUser.setPassword(passwordEncoder.encode(password));
+        newUser.setCreateTime(LocalDateTime.now());
+        newUser.setUpdateTime(LocalDateTime.now());
 
-        // 插入用户信息到数据库
-        userMapper.insert(user);
+        // 插入新用户到数据库
+        userMapper.insert(newUser);
 
-        // 返回注册成功的用户信息
-        return user;
+        // 重新查询用户信息（获取自动生成的ID）
+        queryWrapper.clear();
+        queryWrapper.eq("username", username);
+        newUser = userMapper.selectOne(queryWrapper);
+
+        // 返回新用户信息
+        return newUser;
     }
     
     /**
-     * 重置用户密码
+     * 重置用户密码（需要验证原密码）
      * @param username 用户名
+     * @param oldPassword 原密码
      * @param newPassword 新密码
      * @return 是否重置成功
      */
     @Override
-    public boolean resetPassword(String username, String newPassword) {
+    public boolean resetPassword(String username, String oldPassword, String newPassword) {
         // 创建查询条件构造器
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         // 根据用户名查询用户信息
         queryWrapper.eq("username", username);
         User user = userMapper.selectOne(queryWrapper);
         
-        // 判断用户是否存在
-        if (user == null) {
+        // 判断用户是否存在且原密码正确
+        if (user == null || !passwordEncoder.matches(oldPassword, user.getPassword())) {
             return false;
         }
         

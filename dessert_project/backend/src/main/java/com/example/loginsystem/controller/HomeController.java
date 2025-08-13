@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -39,7 +40,10 @@ public class HomeController {
      * @return 首页数据
      */
     @GetMapping("/data")
-    public Result<HomeDataDTO> getHomeData() {
+    public Result<HomeDataDTO> getHomeData(HttpServletRequest request) {
+        // 从请求属性中获取用户ID（如果需要）
+        Long userId = (Long) request.getAttribute("userId");
+
         // 创建首页数据对象
         HomeDataDTO homeData = new HomeDataDTO();
 
@@ -62,7 +66,10 @@ public class HomeController {
      * @return 甜品列表
      */
     @GetMapping("/desserts")
-    public Result<DessertListDTO> getDessertsByCategory(@RequestParam Long categoryId) {
+    public Result<DessertListDTO> getDessertsByCategory(@RequestParam Long categoryId, HttpServletRequest request) {
+        // 从请求属性中获取用户ID（如果需要）
+        Long userId = (Long) request.getAttribute("userId");
+        
         // 获取分类信息
         Category category = categoryService.getById(categoryId);
         if (category == null) {
@@ -87,7 +94,10 @@ public class HomeController {
      * @return 甜品系列列表
      */
     @GetMapping("/all-series")
-    public Result<List<DessertListDTO>> getAllSeries() {
+    public Result<List<DessertListDTO>> getAllSeries(HttpServletRequest request) {
+        // 从请求属性中获取用户ID（如果需要）
+        Long userId = (Long) request.getAttribute("userId");
+        
         // 获取所有甜品系列分类（type=1）
         List<Category> categories = categoryService.getCategoryByType(1);
 

@@ -14,9 +14,9 @@ public interface UserService extends IService<User> {
      * 用户登录方法
      * @param username 用户名
      * @param password 密码
-     * @return 生成的JWT token
+     * @return 登录成功的用户对象，如果登录失败则返回null
      */
-    String login(String username, String password);
+    User login(String username, String password);
 
     /**
      * 用户注册方法
@@ -27,11 +27,12 @@ public interface UserService extends IService<User> {
     User register(String username, String password);
     
     /**
-     * 重置用户密码
+     * 重置用户密码（需要验证原密码）
      * @param username 用户名
+     * @param oldPassword 原密码
      * @param newPassword 新密码
      * @return 是否重置成功
      */
-    boolean resetPassword(String username, String newPassword);
+    boolean resetPassword(String username, String oldPassword, String newPassword);
 
 }

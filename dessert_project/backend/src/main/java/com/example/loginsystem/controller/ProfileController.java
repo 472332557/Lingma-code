@@ -8,6 +8,7 @@ import com.example.loginsystem.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
 /**
@@ -29,9 +30,9 @@ public class ProfileController {
      * @return 用户信息
      */
     @GetMapping("/info")
-    public Result<User> getUserInfo() {
-        // 这里应该从token中获取用户ID，示例中写死为1
-        Long userId = 1L;
+    public Result<User> getUserInfo(HttpServletRequest request) {
+        // 从请求属性中获取用户ID
+        Long userId = (Long) request.getAttribute("userId");
 
         // 获取用户信息
         User user = userService.getById(userId);
@@ -51,9 +52,9 @@ public class ProfileController {
      * @return 地址列表
      */
     @GetMapping("/addresses")
-    public Result<List<Address>> getUserAddresses() {
-        // 这里应该从token中获取用户ID，示例中写死为1
-        Long userId = 1L;
+    public Result<List<Address>> getUserAddresses(HttpServletRequest request) {
+        // 从请求属性中获取用户ID
+        Long userId = (Long) request.getAttribute("userId");
 
         // 获取用户地址列表
         List<Address> addresses = addressService.getAddressesByUserId(userId);
@@ -68,9 +69,9 @@ public class ProfileController {
      * @return 添加结果
      */
     @PostMapping("/address")
-    public Result<String> addAddress(@RequestBody Address address) {
-        // 这里应该从token中获取用户ID，示例中写死为1
-        Long userId = 1L;
+    public Result<String> addAddress(@RequestBody Address address, HttpServletRequest request) {
+        // 从请求属性中获取用户ID
+        Long userId = (Long) request.getAttribute("userId");
         address.setUserId(userId);
 
         // 设置默认值
@@ -93,9 +94,9 @@ public class ProfileController {
      * @return 更新结果
      */
     @PutMapping("/address")
-    public Result<String> updateAddress(@RequestBody Address address) {
-        // 这里应该从token中获取用户ID，示例中写死为1
-        Long userId = 1L;
+    public Result<String> updateAddress(@RequestBody Address address, HttpServletRequest request) {
+        // 从请求属性中获取用户ID
+        Long userId = (Long) request.getAttribute("userId");
 
         // 检查地址是否存在且属于当前用户
         Address existingAddress = addressService.getById(address.getId());
@@ -118,9 +119,9 @@ public class ProfileController {
      * @return 删除结果
      */
     @DeleteMapping("/address/{id}")
-    public Result<String> deleteAddress(@PathVariable Long id) {
-        // 这里应该从token中获取用户ID，示例中写死为1
-        Long userId = 1L;
+    public Result<String> deleteAddress(@PathVariable Long id, HttpServletRequest request) {
+        // 从请求属性中获取用户ID
+        Long userId = (Long) request.getAttribute("userId");
 
         // 检查地址是否存在且属于当前用户
         Address existingAddress = addressService.getById(id);
@@ -143,9 +144,9 @@ public class ProfileController {
      * @return 设置结果
      */
     @PutMapping("/address/default/{id}")
-    public Result<String> setDefaultAddress(@PathVariable Long id) {
-        // 这里应该从token中获取用户ID，示例中写死为1
-        Long userId = 1L;
+    public Result<String> setDefaultAddress(@PathVariable Long id, HttpServletRequest request) {
+        // 从请求属性中获取用户ID
+        Long userId = (Long) request.getAttribute("userId");
 
         // 设置默认地址
         boolean success = addressService.setDefaultAddress(userId, id);
