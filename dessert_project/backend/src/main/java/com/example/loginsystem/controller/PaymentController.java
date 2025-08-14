@@ -98,6 +98,12 @@ public class PaymentController {
                 response.getWriter().write("订单状态不正确");
                 return;
             }
+            
+            // 检查订单金额是否匹配
+            if (order.getTotalAmount().compareTo(amount) != 0) {
+                response.getWriter().write("订单金额不匹配");
+                return;
+            }
 
             // 创建支付宝客户端
             AlipayClient alipayClient = new DefaultAlipayClient(
@@ -129,16 +135,30 @@ public class PaymentController {
                             + "\"body\":\"" + body + "\","
                             + "\"product_code\":\"FAST_INSTANT_TRADE_PAY\"}");
 
-            // 调用SDK生成表单
+            // 调用SDK生成表单 - 这是真实的支付宝支付表单
             String form = alipayClient.pageExecute(alipayRequest).getBody();
 
-            // 直接将完整的表单html输出到页面
+            // 直接将完整的表单html输出到页面，让浏览器自动提交到支付宝
             response.setContentType("text/html;charset=" + alipayConfig.getCharset());
             response.getWriter().write(form);
             response.getWriter().flush();
             response.getWriter().close();
-        } catch (AlipayApiException | IOException e) {
+        } catch (AlipayApiException e) {
+            // 支付宝API异常
             e.printStackTrace();
+            try {
+                response.getWriter().write("支付宝支付创建失败: " + e.getMessage());
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            }
+        } catch (Exception e) {
+            // 其他异常
+            e.printStackTrace();
+            try {
+                response.getWriter().write("支付处理异常: " + e.getMessage());
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            }
         }
     }
 

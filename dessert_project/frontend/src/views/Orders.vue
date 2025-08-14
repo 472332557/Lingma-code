@@ -41,14 +41,14 @@
             <button 
               class="action-button"
               v-if="order.status === 0"
-              @click="payOrder(order.id, 'wechat')"
+              @click="payOrder(order.id, order.totalAmount, 'wechat')"
             >
               微信支付
             </button>
             <button 
               class="action-button"
               v-if="order.status === 0"
-              @click="payOrder(order.id, 'alipay')"
+              @click="payOrder(order.id, order.totalAmount, 'alipay')"
             >
               支付宝支付
             </button>
@@ -89,6 +89,42 @@
         @click="setActiveTab('profile')"
       >
         <span>我的</span>
+      </div>
+    </div>
+    
+    <!-- 支付加载提示 -->
+    <div class="loading-overlay" v-if="isPaying">
+      <div class="loading-content">
+        <div class="spinner"></div>
+        <p>正在跳转到支付页面...</p>
+      </div>
+    </div>
+    
+    <!-- 支付弹窗 -->
+    <div class="modal" v-if="showPaymentModal" @click="closePaymentModal">
+      <div class="payment-modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>支付宝支付</h3>
+          <button class="close-button" @click="closePaymentModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="payment-info">
+            <p>订单号: {{ paymentOrderNumber }}</p>
+            <p>支付金额: ¥{{ paymentAmount }}</p>
+          </div>
+          <div class="payment-iframe-container">
+            <iframe 
+              :src="paymentUrl" 
+              class="payment-iframe"
+              v-if="paymentUrl"
+            ></iframe>
+            <div v-else class="loading">支付页面加载中...</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="cancel-button" @click="closePaymentModal">取消支付</button>
+          <button class="check-payment-button" @click="checkPaymentStatus(paymentOrderId)">检查支付状态</button>
+        </div>
       </div>
     </div>
   </div>
@@ -145,7 +181,15 @@ export default {
         }
       ],
       // 当前激活的tab
-      activeTab: 'orders'
+      activeTab: 'orders',
+      // 支付状态
+      isPaying: false,
+      // 支付弹窗
+      showPaymentModal: false,
+      paymentUrl: '',
+      paymentAmount: 0,
+      paymentOrderNumber: '',
+      paymentOrderId: 0
     };
   },
   mounted() {
@@ -184,30 +228,44 @@ export default {
     /**
      * 支付订单
      */
-    async payOrder(orderId, paymentMethod) {
+    async payOrder(orderId, amount, paymentMethod) {
+      this.isPaying = true;
       try {
         if (paymentMethod === 'alipay') {
-          // 以隐藏表单方式POST，避免 window.open
-          const form = document.createElement('form');
-          form.method = 'POST';
-          form.action = '/api/payment/alipay';
-          form.style.display = 'none';
+          // 使用FormData提交，匹配后端的@RequestParam
+          const formData = new FormData();
+          formData.append('orderId', orderId);
+          formData.append('amount', Number(amount).toFixed(2));
 
-          const orderIdInput = document.createElement('input');
-          orderIdInput.type = 'hidden';
-          orderIdInput.name = 'orderId';
-          orderIdInput.value = orderId;
-          form.appendChild(orderIdInput);
+          const response = await fetch('/api/payment/alipay', {
+            method: 'POST',
+            body: formData
+          });
 
-          const amountInput = document.createElement('input');
-          amountInput.type = 'hidden';
-          amountInput.name = 'amount';
-          amountInput.value = (88).toFixed(2); // 示例金额，建议换为订单实际金额
-          form.appendChild(amountInput);
-
-          document.body.appendChild(form);
-          form.submit();
-          document.body.removeChild(form);
+          if (response.ok) {
+            this.isPaying = false;
+            
+            // 获取HTML响应并显示在弹窗中
+            const html = await response.text();
+            
+            // 创建支付页面
+            const blob = new Blob([html], { type: 'text/html' });
+            const url = window.URL.createObjectURL(blob);
+            
+            // 在弹窗中显示支付页面
+            this.paymentUrl = url;
+            this.paymentAmount = amount;
+            this.paymentOrderId = orderId;
+            this.paymentOrderNumber = 'ORDER_' + orderId; // 示例订单号
+            this.showPaymentModal = true;
+          } else if (response.status === 400) {
+            this.isPaying = false;
+            const errorText = await response.text();
+            alert('支付创建失败: ' + errorText);
+          } else {
+            this.isPaying = false;
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
         } else if (paymentMethod === 'wechat') {
           // 调用后端微信支付接口
           // 实际项目中这里会跳转到微信支付页面
@@ -216,7 +274,47 @@ export default {
       } catch (error) {
         console.error('支付失败:', error);
         alert('支付失败，请稍后重试');
+        this.isPaying = false;
       }
+    },
+    
+    /**
+     * 关闭支付弹窗
+     */
+    closePaymentModal() {
+      this.showPaymentModal = false;
+      this.paymentUrl = '';
+      this.paymentAmount = 0;
+      this.paymentOrderId = 0;
+      this.paymentOrderNumber = '';
+      
+      // 检查支付状态
+      setTimeout(() => {
+        this.checkPaymentStatus(this.paymentOrderId);
+      }, 2000);
+    },
+    
+    /**
+     * 检查支付状态
+     */
+    checkPaymentStatus(orderId) {
+      // 实际项目中这里会调用后端API检查支付状态
+      // 示例代码：
+      // try {
+      //   const response = await api.get(`/api/order/${orderId}/status`);
+      //   if (response.data.code === 200) {
+      //     if (response.data.data.status === 1) {
+      //       alert('支付成功');
+      //     } else {
+      //       alert('支付未完成，请继续支付或取消订单');
+      //     }
+      //   }
+      // } catch (error) {
+      //   console.error('检查支付状态失败:', error);
+      //   alert('检查支付状态失败');
+      // }
+      
+      alert('支付状态检查完成');
     },
 
     /**
@@ -435,5 +533,149 @@ export default {
 
 .nav-item span {
   margin-top: 5px;
+}
+
+/* 加载提示样式 */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.loading-content {
+  background-color: #fff;
+  padding: 30px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #409eff;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 弹窗样式 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.close-button {
+  font-size: 24px;
+  color: #999;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.modal-body {
+  padding: 15px;
+}
+
+.payment-info {
+  padding: 15px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.payment-info p {
+  margin: 5px 0;
+  font-size: 16px;
+}
+
+.payment-iframe-container {
+  flex: 1;
+  min-height: 400px;
+}
+
+.payment-iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  border: none;
+}
+
+.loading {
+  text-align: center;
+  padding: 50px;
+  color: #999;
+}
+
+.modal-footer {
+  padding: 15px;
+  border-top: 1px solid #eee;
+  text-align: right;
+}
+
+.cancel-button {
+  padding: 10px 20px;
+  font-size: 16px;
+  color: #ff4444;
+  background-color: #fff;
+  border: 1px solid #ff4444;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+.check-payment-button {
+  padding: 10px 20px;
+  font-size: 16px;
+  color: #409eff;
+  background-color: #fff;
+  border: 1px solid #409eff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* 支付弹窗 */
+.payment-modal-content {
+  background-color: #fff;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90%;
+  display: flex;
+  flex-direction: column;
 }
 </style>
