@@ -89,19 +89,22 @@ public class PaymentController {
             // 获取订单信息
             Order order = orderService.getById(orderId);
             if (order == null) {
-                response.getWriter().write("订单不存在");
+                response.setContentType("text/html;charset=UTF-8");
+                response.getWriter().write("<html><body><h1>订单不存在</h1></body></html>");
                 return;
             }
             
             // 检查订单状态
             if (order.getStatus() != 0) { // 0:待支付
-                response.getWriter().write("订单状态不正确");
+                response.setContentType("text/html;charset=UTF-8");
+                response.getWriter().write("<html><body><h1>订单状态不正确</h1></body></html>");
                 return;
             }
             
             // 检查订单金额是否匹配
             if (order.getTotalAmount().compareTo(amount) != 0) {
-                response.getWriter().write("订单金额不匹配");
+                response.setContentType("text/html;charset=UTF-8");
+                response.getWriter().write("<html><body><h1>订单金额不匹配</h1></body></html>");
                 return;
             }
 
@@ -124,7 +127,7 @@ public class PaymentController {
             // 填充业务参数
             String outTradeNo = order.getOrderNumber(); // 使用订单号作为商户订单号
             String totalAmount = amount.toString(); // 订单总金额
-            String subject = "甜品订单支付"; // 订单标题
+            String subject = "甜品订单支付 - " + order.getOrderNumber(); // 订单标题
             String body = "甜品订单支付详情"; // 订单描述
 
             // 设置业务参数
@@ -147,7 +150,8 @@ public class PaymentController {
             // 支付宝API异常
             e.printStackTrace();
             try {
-                response.getWriter().write("支付宝支付创建失败: " + e.getMessage());
+                response.setContentType("text/html;charset=UTF-8");
+                response.getWriter().write("<html><body><h1>支付宝支付创建失败: " + e.getMessage() + "</h1></body></html>");
             } catch (IOException ioException) {
                 ioException.printStackTrace();
             }
@@ -155,7 +159,8 @@ public class PaymentController {
             // 其他异常
             e.printStackTrace();
             try {
-                response.getWriter().write("支付处理异常: " + e.getMessage());
+                response.setContentType("text/html;charset=UTF-8");
+                response.getWriter().write("<html><body><h1>支付处理异常: " + e.getMessage() + "</h1></body></html>");
             } catch (IOException ioException) {
                 ioException.printStackTrace();
             }

@@ -189,7 +189,15 @@ export default {
       paymentUrl: '',
       paymentAmount: 0,
       paymentOrderNumber: '',
-      paymentOrderId: 0
+      paymentOrderId: 0,
+      // 支付状态 ('pending', 'success', 'failed', 'timeout')
+      paymentStatus: 'pending',
+      // 支付错误信息
+      paymentError: '',
+      // 支付超时时间（毫秒）
+      paymentTimeout: 300000, // 5分钟
+      // 支付定时器
+      paymentInterval: null
     };
   },
   mounted() {

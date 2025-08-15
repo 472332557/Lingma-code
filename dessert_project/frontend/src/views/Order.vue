@@ -176,6 +176,35 @@
       </div>
     </div>
     
+    <!-- 支付方式选择弹窗 -->
+    <div class="modal" v-if="showPaymentMethodModal" @click="closePaymentMethodModal">
+      <div class="payment-modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>选择支付方式</h3>
+          <button class="close-button" @click="closePaymentMethodModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="payment-info">
+            <p>订单号: {{ paymentOrderNumber }}</p>
+            <p>支付金额: ¥{{ paymentAmount }}</p>
+          </div>
+          <div class="payment-methods">
+            <div class="payment-method" @click="chooseAlipay">
+              <div class="method-icon"></div>
+              <div class="method-name">支付宝支付</div>
+            </div>
+            <div class="payment-method" @click="chooseWechat">
+              <div class="method-icon"></div>
+              <div class="method-name">微信支付</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="cancel-button" @click="closePaymentMethodModal">取消支付</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 支付弹窗 -->
     <div class="modal" v-if="showPaymentModal" @click="closePaymentModal">
       <div class="payment-modal-content" @click.stop>
@@ -188,13 +217,11 @@
             <p>订单号: {{ paymentOrderNumber }}</p>
             <p>支付金额: ¥{{ paymentAmount }}</p>
           </div>
-          <div class="payment-iframe-container">
-            <iframe 
-              :src="paymentUrl" 
-              class="payment-iframe"
-              v-if="paymentUrl"
-            ></iframe>
-            <div v-else class="loading">支付页面加载中...</div>
+          <div class="payment-status-container">
+            <div class="payment-status">
+              <p>支付页面已在新窗口打开</p>
+              <p>请在支付宝页面完成支付</p>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -334,15 +361,17 @@ export default {
       // 消息弹窗
       showMessageModal: false,
       messageText: '',
-      
+      // 支付方式选择弹窗
+      showPaymentMethodModal: false,
       // 支付弹窗
       showPaymentModal: false,
       paymentUrl: '',
       paymentAmount: 0,
       paymentOrderNumber: '',
-      paymentOrderId: 0
-      showMessageModal: false,
-      messageText: ''
+      paymentOrderId: 0,
+      // 待支付的订单信息
+      pendingPaymentOrderId: 0,
+      pendingPaymentAmount: 0
     };
   },
   computed: {
@@ -586,22 +615,32 @@ export default {
 
     // 打开/关闭支付方式弹窗
     openPaymentModal(orderId, amount) {
-      this.pendingPaymentOrderId = orderId;
-      this.pendingPaymentAmount = Number(amount) || 0;
-      this.showPaymentModal = true;
+      this.paymentOrderId = orderId;
+      this.paymentAmount = Number(amount) || 0;
+      this.paymentOrderNumber = 'ORDER_' + orderId; // 示例订单号
+      this.showPaymentMethodModal = true;
+    },
+    closePaymentMethodModal() {
+      this.showPaymentMethodModal = false;
     },
     closePaymentModal() {
       this.showPaymentModal = false;
+      this.paymentUrl = '';
+      
+      // 检查支付状态
+      setTimeout(() => {
+        this.checkPaymentStatus(this.paymentOrderId);
+      }, 2000);
     },
 
     // 选择支付方式
     chooseAlipay() {
-      this.closePaymentModal();
-      this.alipay(this.pendingPaymentOrderId, this.pendingPaymentAmount);
+      this.closePaymentMethodModal();
+      this.alipay(this.paymentOrderId, this.paymentAmount);
     },
     chooseWechat() {
-      this.closePaymentModal();
-      this.showMessage(`使用微信支付订单 ${this.pendingPaymentOrderId}，金额: ¥${this.pendingPaymentAmount.toFixed(2)}`);
+      this.closePaymentMethodModal();
+      this.showMessage(`使用微信支付订单 ${this.paymentOrderId}，金额: ¥${this.paymentAmount.toFixed(2)}`);
     },
 
     /**
@@ -618,6 +657,9 @@ export default {
 
         const response = await fetch('/api/payment/alipay', {
           method: 'POST',
+          headers: {
+            'Authorization': localStorage.getItem('token') || ''
+          },
           body: formData
         });
 
@@ -625,12 +667,14 @@ export default {
           // 获取HTML响应并显示
           const html = await response.text();
           
-          // 创建支付页面
-          const blob = new Blob([html], { type: 'text/html' });
-          const url = window.URL.createObjectURL(blob);
-          
-          // 在弹窗中显示支付页面
-          this.paymentUrl = url;
+          // 直接在新窗口打开支付页面
+          const newWindow = window.open('', '_blank');
+          if (newWindow) {
+            newWindow.document.write(html);
+            newWindow.document.close();
+          }
+
+          // 记录支付信息
           this.paymentAmount = amount;
           this.paymentOrderId = orderId;
           this.paymentOrderNumber = 'ORDER_' + orderId; // 示例订单号
@@ -640,6 +684,9 @@ export default {
         } else if (response.status === 400) {
           const errorText = await response.text();
           this.showMessage('支付创建失败: ' + errorText);
+        } else if (response.status === 401) {
+          this.showMessage('登录已过期，请重新登录');
+          this.$router.push('/login');
         } else {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -692,6 +739,12 @@ export default {
     showMessage(text) {
       this.messageText = text || '';
       this.showMessageModal = true;
+    },
+    
+    // 关闭消息弹窗
+    closeMessageModal() {
+      this.showMessageModal = false;
+      this.messageText = '';
     },
 
     /**
@@ -977,17 +1030,58 @@ export default {
   font-size: 16px;
 }
     
-.payment-iframe-container {
-  flex: 1;
-  min-height: 400px;
+.payment-methods {
+    margin-top: 20px;
 }
-    
-.payment-iframe {
-  width: 100%;
-  height: 100%;
-  min-height: 400px;
-  border: none;
+
+.payment-method {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    margin-bottom: 10px;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    cursor: pointer;
 }
+
+.payment-method:hover {
+    background-color: #ecf5ff;
+}
+
+.method-icon {
+    width: 40px;
+    height: 40px;
+    background-color: #ddd;
+    border-radius: 50%;
+    margin-right: 15px;
+}
+
+.method-name {
+    font-size: 16px;
+    color: #333;
+}
+
+.payment-status-container {
+    width: 100%;
+    height: 200px;
+    margin-top: 20px;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .payment-status {
+    text-align: center;
+    padding: 20px;
+  }
+
+  .payment-status p {
+    margin: 10px 0;
+    color: #333;
+    font-size: 16px;
+  }
     
 .loading {
   text-align: center;
