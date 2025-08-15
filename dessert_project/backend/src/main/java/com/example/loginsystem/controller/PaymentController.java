@@ -132,11 +132,12 @@ public class PaymentController {
 
             // 设置业务参数
             alipayRequest.setBizContent(
-                    "{\"out_trade_no\":\"" + outTradeNo + "\","
-                            + "\"total_amount\":\"" + totalAmount + "\","
-                            + "\"subject\":\"" + subject + "\","
-                            + "\"body\":\"" + body + "\","
-                            + "\"product_code\":\"FAST_INSTANT_TRADE_PAY\"}");
+                    "{\"out_trade_no\":\"" + outTradeNo + "\"," 
+                            + "\"total_amount\":\"" + totalAmount + "\"," 
+                            + "\"subject\":\"" + subject + "\"," 
+                            + "\"body\":\"" + body + "\"," 
+                            + "\"product_code\":\"FAST_INSTANT_TRADE_PAY\"," 
+                            + "\"timeout_express\":\"1800s\"}");
 
             // 调用SDK生成表单 - 这是真实的支付宝支付表单
             String form = alipayClient.pageExecute(alipayRequest).getBody();
