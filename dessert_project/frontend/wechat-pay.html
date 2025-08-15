@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信支付</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+        }
+        .pay-container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .qr-code-container {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        .status-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .status-pending {
+            color: #ff9500;
+        }
+        .status-success {
+            color: #007aff;
+        }
+        .status-fail {
+            color: #ff3b30;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="pay-container bg-white rounded-lg shadow-md mt-10">
+        <div class="text-center py-6">
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">微信支付</h1>
+            <p class="text-gray-600" id="order-info">订单信息加载中...</p>
+        </div>
+
+        <div class="border-t border-gray-200 pt-6">
+            <div class="text-center mb-6">
+                <p class="text-lg text-gray-700 mb-2">支付金额</p>
+                <p class="text-3xl font-bold text-red-600" id="pay-amount">¥0.00</p>
+            </div>
+
+            <div id="jsapi-pay-container" class="hidden mb-6 text-center">
+                <button id="wechat-pay-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full transition duration-300 ease-in-out transform hover:scale-105">
+                    立即支付
+                </button>
+            </div>
+
+            <div id="native-pay-container" class="hidden">
+                <p class="text-center text-gray-600 mb-4">请使用微信扫码支付</p>
+                <div class="qr-code-container" id="qr-code"></div>
+            </div>
+
+            <div class="status-container" id="pay-status">
+                <p class="status-pending font-medium">等待支付...</p>
+            </div>
+
+            <div class="text-center mt-8 mb-4">
+                <p class="text-gray-500 text-sm">
+                    支付完成前请不要关闭此页面
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 从URL获取订单ID
+        function getOrderIdFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('orderId');
+        }
+
+        // 获取订单信息和支付参数
+        async function getPayParams() {
+            try {
+                const orderId = getOrderIdFromUrl();
+                if (!orderId) {
+                    throw new Error('订单ID不存在');
+                }
+
+                // 获取订单信息
+                const orderResponse = await axios.get(`/api/order/${orderId}`);
+                const order = orderResponse.data.data;
+                document.getElementById('order-info').textContent = `订单号: ${order.orderNumber}`;
+                document.getElementById('pay-amount').textContent = `¥${order.totalAmount.toFixed(2)}`;
+
+                // 获取支付参数
+                const payResponse = await axios.post('/api/payment/wechat', {
+                    orderId: orderId,
+                    amount: order.totalAmount
+                });
+                const payInfo = payResponse.data.data;
+
+                // 根据支付类型显示不同的支付方式
+                if (payInfo.codeUrl) {
+                    // 二维码支付
+                    document.getElementById('native-pay-container').classList.remove('hidden');
+                    generateQrCode(payInfo.codeUrl);
+                } else if (payInfo.timeStamp && payInfo.nonceStr && payInfo.package && payInfo.signType && payInfo.paySign) {
+                    // JSAPI支付
+                    document.getElementById('jsapi-pay-container').classList.remove('hidden');
+                    setupJsapiPay(payInfo);
+                }
+
+                // 轮询检查支付状态
+                checkPayStatus(orderId);
+            } catch (error) {
+                console.error('获取支付参数失败:', error);
+                updatePayStatus('fail', '获取支付参数失败，请重试');
+            }
+        }
+
+        // 生成二维码
+        function generateQrCode(codeUrl) {
+            const qrCodeContainer = document.getElementById('qr-code');
+            qrCodeContainer.innerHTML = '';
+            new QRCode(qrCodeContainer, {
+                text: codeUrl,
+                width: 200,
+                height: 200,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        // 设置JSAPI支付
+        function setupJsapiPay(payInfo) {
+            const payButton = document.getElementById('wechat-pay-btn');
+            payButton.addEventListener('click', function() {
+                if (typeof WeixinJSBridge === 'undefined') {
+                    if (document.addEventListener) {
+                        document.addEventListener('WeixinJSBridgeReady', function() {
+                            onBridgeReady(payInfo);
+                        }, false);
+                    } else if (document.attachEvent) {
+                        document.attachEvent('WeixinJSBridgeReady', function() {
+                            onBridgeReady(payInfo);
+                        });
+                        document.attachEvent('onWeixinJSBridgeReady', function() {
+                            onBridgeReady(payInfo);
+                        });
+                    }
+                } else {
+                    onBridgeReady(payInfo);
+                }
+            });
+        }
+
+        // JSAPI支付调用
+        function onBridgeReady(payInfo) {
+            WeixinJSBridge.invoke(
+                'getBrandWCPayRequest',
+                {
+                    "appId": payInfo.appId,
+                    "timeStamp": payInfo.timeStamp,
+                    "nonceStr": payInfo.nonceStr,
+                    "package": payInfo.package,
+                    "signType": payInfo.signType,
+                    "paySign": payInfo.paySign
+                },
+                function(res) {
+                    if (res.err_msg === 'get_brand_wcpay_request:ok') {
+                        updatePayStatus('success', '支付成功');
+                        setTimeout(function() {
+                            window.location.href = '/order/success?orderId=' + getOrderIdFromUrl();
+                        }, 2000);
+                    } else if (res.err_msg === 'get_brand_wcpay_request:cancel') {
+                        updatePayStatus('fail', '支付已取消');
+                    } else {
+                        updatePayStatus('fail', '支付失败: ' + res.err_msg);
+                    }
+                }
+            );
+        }
+
+        // 轮询检查支付状态
+        async function checkPayStatus(orderId) {
+            let checkCount = 0;
+            const maxCheckCount = 60; // 检查60次，每次3秒，共3分钟
+
+            const interval = setInterval(async function() {
+                checkCount++;
+                if (checkCount > maxCheckCount) {
+                    clearInterval(interval);
+                    updatePayStatus('fail', '支付超时，请重新支付');
+                    return;
+                }
+
+                try {
+                    const response = await axios.get(`/api/order/${orderId}/status`);
+                    const status = response.data.data.status;
+                    if (status === 1) { // 支付成功
+                        clearInterval(interval);
+                        updatePayStatus('success', '支付成功');
+                        setTimeout(function() {
+                            window.location.href = '/order/success?orderId=' + orderId;
+                        }, 2000);
+                    } else if (status === 2) { // 支付失败
+                        clearInterval(interval);
+                        updatePayStatus('fail', '支付失败');
+                    }
+                } catch (error) {
+                    console.error('检查支付状态失败:', error);
+                }
+            }, 3000); // 每3秒检查一次
+        }
+
+        // 更新支付状态
+        function updatePayStatus(type, message) {
+            const statusContainer = document.getElementById('pay-status');
+            statusContainer.innerHTML = '';
+
+            const statusClass = type === 'success' ? 'status-success' : (type === 'fail' ? 'status-fail' : 'status-pending');
+            const statusIcon = type === 'success' ? '✓' : (type === 'fail' ? '✗' : '⟳');
+
+            const statusElement = document.createElement('p');
+            statusElement.className = `${statusClass} font-medium`;
+            statusElement.textContent = `${statusIcon} ${message}`;
+            statusContainer.appendChild(statusElement);
+        }
+
+        // 页面加载完成后获取支付参数
+        window.onload = function() {
+            getPayParams();
+        };
+    </script>
+</body>
+</html>

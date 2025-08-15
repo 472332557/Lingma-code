@@ -5,18 +5,19 @@ import com.example.loginsystem.dto.DessertDetailDTO;
 import com.example.loginsystem.dto.DessertListDTO;
 import com.example.loginsystem.entity.Category;
 import com.example.loginsystem.entity.Dessert;
+import com.example.loginsystem.entity.Order;
 import com.example.loginsystem.service.CategoryService;
 import com.example.loginsystem.service.DessertService;
 import com.example.loginsystem.service.DessertSpecService;
+import com.example.loginsystem.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -35,6 +36,9 @@ public class OrderController {
 
     @Autowired
     private DessertSpecService dessertSpecService;
+
+    @Autowired
+    private OrderService orderService;
 
     /**
      * 获取所有分类接口
@@ -94,6 +98,75 @@ public class OrderController {
 
         // 返回结果
         return Result.success(dessertLists);
+    }
+
+    /**
+     * 查询订单状态接口
+     * @param orderId 订单ID
+     * @return 订单状态信息
+     */
+    @GetMapping("/{orderId}/status")
+    public Result<Map<String, Object>> getOrderStatus(@PathVariable Long orderId) {
+        try {
+            // 查询订单
+            Order order = orderService.getById(orderId);
+            if (order == null) {
+                return Result.error("订单不存在");
+            }
+
+            // 构建返回结果
+            Map<String, Object> result = new HashMap<>();
+            result.put("orderId", order.getId());
+            result.put("orderNumber", order.getOrderNumber());
+            result.put("status", order.getStatus());
+            result.put("statusDesc", getStatusDescription(order.getStatus()));
+            result.put("totalAmount", order.getTotalAmount());
+            result.put("createTime", order.getCreateTime());
+
+            return Result.success(result);
+        } catch (Exception e) {
+            return Result.error("查询订单状态失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取订单状态描述
+     * @param status 订单状态
+     * @return 状态描述
+     */
+    private String getStatusDescription(Integer status) {
+        switch (status) {
+            case 0:
+                return "待支付";
+            case 1:
+                return "支付成功";
+            case 2:
+                return "支付失败";
+            case 3:
+                return "已取消";
+            case 4:
+                return "已完成";
+            default:
+                return "未知状态";
+        }
+    }
+
+    /**
+     * 获取订单详情接口
+     * @param orderId 订单ID
+     * @return 订单详情
+     */
+    @GetMapping("/{orderId}")
+    public Result<Order> getOrderDetail(@PathVariable Long orderId) {
+        try {
+            Order order = orderService.getById(orderId);
+            if (order == null) {
+                return Result.error("订单不存在");
+            }
+            return Result.success(order);
+        } catch (Exception e) {
+            return Result.error("获取订单详情失败: " + e.getMessage());
+        }
     }
 
     /**

@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
  */
 @Data
 @Component
-@ConfigurationProperties(prefix = "wx.pay")
-public class WxPayConfig {
+//@ConfigurationProperties(prefix = "wx.pay")
+public class WxPayYmlConfig {
 
     /**
      * 微信支付商户号

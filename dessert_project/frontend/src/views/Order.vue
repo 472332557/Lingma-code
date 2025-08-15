@@ -178,33 +178,24 @@
     
     <!-- 支付方式选择弹窗 -->
     <div class="modal" v-if="showPaymentMethodModal" @click="closePaymentMethodModal">
-      <div class="payment-modal-content" @click.stop>
+      <div class="payment-method-modal-content" @click.stop>
         <div class="modal-header">
           <h3>选择支付方式</h3>
           <button class="close-button" @click="closePaymentMethodModal">&times;</button>
         </div>
         <div class="modal-body">
-          <div class="payment-info">
-            <p>订单号: {{ paymentOrderNumber }}</p>
-            <p>支付金额: ¥{{ paymentAmount }}</p>
+          <div class="payment-method-item" @click="chooseAlipay">
+            <div class="payment-method-icon">💰</div>
+            <div class="payment-method-name">支付宝</div>
           </div>
-          <div class="payment-methods">
-            <div class="payment-method" @click="chooseAlipay">
-              <div class="method-icon"></div>
-              <div class="method-name">支付宝支付</div>
-            </div>
-            <div class="payment-method" @click="chooseWechat">
-              <div class="method-icon"></div>
-              <div class="method-name">微信支付</div>
-            </div>
+          <div class="payment-method-item" @click="chooseWechat">
+            <div class="payment-method-icon">💬</div>
+            <div class="payment-method-name">微信支付</div>
           </div>
-        </div>
-        <div class="modal-footer">
-          <button class="cancel-button" @click="closePaymentMethodModal">取消支付</button>
         </div>
       </div>
     </div>
-
+    
     <!-- 支付弹窗 -->
     <div class="modal" v-if="showPaymentModal" @click="closePaymentModal">
       <div class="payment-modal-content" @click.stop>
@@ -217,11 +208,13 @@
             <p>订单号: {{ paymentOrderNumber }}</p>
             <p>支付金额: ¥{{ paymentAmount }}</p>
           </div>
-          <div class="payment-status-container">
-            <div class="payment-status">
-              <p>支付页面已在新窗口打开</p>
-              <p>请在支付宝页面完成支付</p>
-            </div>
+          <div class="payment-iframe-container">
+            <iframe 
+              :src="paymentUrl" 
+              class="payment-iframe"
+              v-if="paymentUrl"
+            ></iframe>
+            <div v-else class="loading">支付页面加载中...</div>
           </div>
         </div>
         <div class="modal-footer">
@@ -242,6 +235,19 @@ export default {
       activeCategory: null,
       // 所有商品列表
       allProducts: [
+        // 测试蛋糕商品 - 添加于2025-05-13
+        { 
+          id: 99, 
+          name: '测试蛋糕', 
+          description: '这是一个用于测试下单流程的蛋糕商品', 
+          price: 99.00, 
+          category: 1,
+          specs: [
+            { id: 991, name: '小号', price: 89.00 },
+            { id: 992, name: '中号', price: 99.00 },
+            { id: 993, name: '大号', price: 109.00 }
+          ]
+        },
         { 
           id: 1, 
           name: '草莓奶油蛋糕', 
@@ -361,17 +367,18 @@ export default {
       // 消息弹窗
       showMessageModal: false,
       messageText: '',
-      // 支付方式选择弹窗
-      showPaymentMethodModal: false,
       // 支付弹窗
       showPaymentModal: false,
       paymentUrl: '',
       paymentAmount: 0,
       paymentOrderNumber: '',
       paymentOrderId: 0,
+      // 支付方式选择弹窗
+      showPaymentMethodModal: false,
       // 待支付的订单信息
       pendingPaymentOrderId: 0,
-      pendingPaymentAmount: 0
+      pendingPaymentAmount: 0,
+      pendingPaymentOrderNumber: ''
     };
   },
   computed: {
@@ -584,12 +591,14 @@ export default {
 
         if (response.ok) {
           const result = await response.json();
+          console.log('订单创建响应数据:', result);
           if (result.code === 200) {
             const orderId = result.data.orderId;
             const totalAmount = result.data.totalAmount;
+            const orderNumber = result.data.orderNumber;
             this.showMessage('订单创建成功，准备跳转到支付页面');
             // 跳转到支付页面
-            this.openPaymentModal(orderId, totalAmount);
+            this.openPaymentModal(orderId, totalAmount, orderNumber);
           } else {
             this.showMessage('创建订单失败: ' + (result.message || '未知错误'));
           }
@@ -597,7 +606,9 @@ export default {
           this.showMessage('登录已过期，请重新登录');
           this.$router.push('/login');
         } else {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          const errorText = await response.text();
+          console.error('订单创建失败，响应内容:', errorText);
+          this.showMessage('创建订单失败: ' + errorText);
         }
       } catch (error) {
         console.error('创建订单失败:', error);
@@ -606,18 +617,12 @@ export default {
     },
     
     /**
-     * 支付订单
+     * 打开/关闭支付方式弹窗
      */
-    payOrder(orderId) {
-      const amount = this.totalAmount;
-      this.openPaymentModal(orderId, amount);
-    },
-
-    // 打开/关闭支付方式弹窗
-    openPaymentModal(orderId, amount) {
-      this.paymentOrderId = orderId;
-      this.paymentAmount = Number(amount) || 0;
-      this.paymentOrderNumber = 'ORDER_' + orderId; // 示例订单号
+    openPaymentModal(orderId, amount, orderNumber) {
+      this.pendingPaymentOrderId = orderId;
+      this.pendingPaymentAmount = Number(amount) || 0;
+      this.pendingPaymentOrderNumber = orderNumber || '';
       this.showPaymentMethodModal = true;
     },
     closePaymentMethodModal() {
@@ -636,11 +641,67 @@ export default {
     // 选择支付方式
     chooseAlipay() {
       this.closePaymentMethodModal();
-      this.alipay(this.paymentOrderId, this.paymentAmount);
+      this.alipay(this.pendingPaymentOrderId, this.pendingPaymentAmount);
     },
     chooseWechat() {
       this.closePaymentMethodModal();
-      this.showMessage(`使用微信支付订单 ${this.paymentOrderId}，金额: ¥${this.paymentAmount.toFixed(2)}`);
+      this.wechatPay(this.pendingPaymentOrderId, this.pendingPaymentAmount);
+    },
+    
+    // 微信支付
+    async wechatPay(orderId, amount) {
+      try {
+        this.showMessage('正在创建微信支付订单，请稍候...');
+        
+        const response = await fetch('/api/payment/wechat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            orderId: orderId,
+            amount: Number(amount).toFixed(2)
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.code === 200) {
+          // 微信支付参数
+          const payParams = result.data;
+          
+          // 调用微信支付JSAPI
+          if (typeof WeixinJSBridge !== "undefined") {
+            WeixinJSBridge.invoke('getBrandWCPayRequest', {
+              "appId": payParams.appId,
+              "timeStamp": payParams.timeStamp,
+              "nonceStr": payParams.nonceStr,
+              "package": payParams.package,
+              "signType": payParams.signType,
+              "paySign": payParams.paySign
+            }, (res) => {
+              if (res.err_msg == "get_brand_wcpay_request:ok") {
+                // 支付成功
+                this.showMessage('支付成功');
+                // 可以跳转到支付成功页面或刷新订单状态
+                setTimeout(() => {
+                  this.$router.push('/orders');
+                }, 2000);
+              } else {
+                // 支付失败或取消
+                this.showMessage('支付失败或已取消');
+              }
+            });
+          } else {
+            this.showMessage('请在微信客户端中打开');
+          }
+        } else {
+          this.showMessage('微信支付创建失败: ' + (result.message || '未知错误'));
+        }
+      } catch (error) {
+        console.error('微信支付失败:', error);
+        this.showMessage('微信支付失败，请稍后重试');
+      }
     },
 
     /**
@@ -657,9 +718,6 @@ export default {
 
         const response = await fetch('/api/payment/alipay', {
           method: 'POST',
-          headers: {
-            'Authorization': localStorage.getItem('token') || ''
-          },
           body: formData
         });
 
@@ -667,26 +725,21 @@ export default {
           // 获取HTML响应并显示
           const html = await response.text();
           
-          // 直接在新窗口打开支付页面
-          const newWindow = window.open('', '_blank');
-          if (newWindow) {
-            newWindow.document.write(html);
-            newWindow.document.close();
-          }
-
-          // 记录支付信息
+          // 创建支付页面
+          const blob = new Blob([html], { type: 'text/html' });
+          const url = window.URL.createObjectURL(blob);
+          
+          // 在弹窗中显示支付页面
+          this.paymentUrl = url;
           this.paymentAmount = amount;
           this.paymentOrderId = orderId;
-          this.paymentOrderNumber = 'ORDER_' + orderId; // 示例订单号
+          this.paymentOrderNumber = this.pendingPaymentOrderNumber; // 使用之前保存的订单号
           this.showPaymentModal = true;
           
           this.showMessage('支付页面已打开，请在支付宝页面完成支付');
         } else if (response.status === 400) {
           const errorText = await response.text();
           this.showMessage('支付创建失败: ' + errorText);
-        } else if (response.status === 401) {
-          this.showMessage('登录已过期，请重新登录');
-          this.$router.push('/login');
         } else {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -1268,4 +1321,33 @@ export default {
 .add-to-cart-button:hover {
   background-color: #337ecc;
 }
-</style>
+
+/* 支付方式选择弹窗 */
+.payment-method-modal-content {
+  background-color: #fff;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 300px;
+}
+
+.payment-method-item {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+
+.payment-method-item:last-child {
+  border-bottom: none;
+}
+
+.payment-method-icon {
+  font-size: 24px;
+  margin-right: 15px;
+}
+
+.payment-method-name {
+  font-size: 16px;
+  color: #333;
+}

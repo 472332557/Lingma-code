@@ -89,13 +89,6 @@
             <scope>provided</scope>
         </dependency>
         
-        <!-- WeChat Pay SDK -->
-        <dependency>
-            <groupId>com.github.wechatpay-apiv3</groupId>
-            <artifactId>wechatpay-java</artifactId>
-            <version>0.2.7</version>
-        </dependency>
-        
         <!-- HttpClient for WeChat Pay -->
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
@@ -116,6 +109,7 @@
             <artifactId>alipay-sdk-java</artifactId>
             <version>4.22.110.ALL</version>
         </dependency>
+        
     </dependencies>
     
     <build>

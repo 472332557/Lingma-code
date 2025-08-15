@@ -96,7 +96,7 @@
     <div class="loading-overlay" v-if="isPaying">
       <div class="loading-content">
         <div class="spinner"></div>
-        <p>正在跳转到支付页面...</p>
+        <p>正在创建支付订单...</p>
       </div>
     </div>
     
@@ -139,47 +139,7 @@ export default {
   data() {
     return {
       // 订单列表
-      orders: [
-        {
-          id: 1,
-          orderNumber: '202306010001',
-          status: 0, // 0:待支付 1:已支付 2:已取消 3:已完成
-          totalItems: 2,
-          totalAmount: 196.00,
-          items: [
-            {
-              id: 1,
-              name: '草莓奶油蛋糕',
-              spec: '8寸',
-              price: 128.00,
-              quantity: 1
-            },
-            {
-              id: 2,
-              name: '芒果千层蛋糕',
-              spec: '6寸',
-              price: 68.00,
-              quantity: 1
-            }
-          ]
-        },
-        {
-          id: 2,
-          orderNumber: '202305280005',
-          status: 3, // 已完成
-          totalItems: 1,
-          totalAmount: 158.00,
-          items: [
-            {
-              id: 3,
-              name: '巧克力慕斯蛋糕',
-              spec: '8寸',
-              price: 158.00,
-              quantity: 1
-            }
-          ]
-        }
-      ],
+      orders: [],
       // 当前激活的tab
       activeTab: 'orders',
       // 支付状态
@@ -189,15 +149,7 @@ export default {
       paymentUrl: '',
       paymentAmount: 0,
       paymentOrderNumber: '',
-      paymentOrderId: 0,
-      // 支付状态 ('pending', 'success', 'failed', 'timeout')
-      paymentStatus: 'pending',
-      // 支付错误信息
-      paymentError: '',
-      // 支付超时时间（毫秒）
-      paymentTimeout: 300000, // 5分钟
-      // 支付定时器
-      paymentInterval: null
+      paymentOrderId: 0
     };
   },
   mounted() {
@@ -211,10 +163,31 @@ export default {
     async fetchOrders() {
       try {
         // 实际项目中这里会调用后端API获取订单列表
-        // const response = await api.get('/api/user/order/list');
-        // if (response.data.code === 200) {
-        //   this.orders = response.data.data;
-        // }
+        const token = localStorage.getItem('token');
+        if (!token) {
+          this.$router.push('/login');
+          return;
+        }
+        
+        const response = await fetch('/api/user/order/list', {
+          method: 'GET',
+          headers: {
+            'Authorization': token
+          }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.code === 200) {
+            this.orders = result.data;
+          } else {
+            console.error('获取订单列表失败:', result.message);
+          }
+        } else if (response.status === 401) {
+          this.$router.push('/login');
+        } else {
+          console.error('获取订单列表失败，HTTP状态码:', response.status);
+        }
       } catch (error) {
         console.error('获取订单列表失败:', error);
       }
@@ -276,8 +249,51 @@ export default {
           }
         } else if (paymentMethod === 'wechat') {
           // 调用后端微信支付接口
-          // 实际项目中这里会跳转到微信支付页面
-          alert(`使用微信支付订单 ${orderId}`);
+          const response = await fetch('/api/payment/wechat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+              orderId: orderId,
+              amount: Number(amount).toFixed(2)
+            })
+          });
+          
+          const result = await response.json();
+          
+          if (result.code === 200) {
+            this.isPaying = false;
+            // 微信支付参数
+            const payParams = result.data;
+            
+            // 调用微信支付JSAPI
+            if (typeof WeixinJSBridge !== "undefined") {
+              WeixinJSBridge.invoke('getBrandWCPayRequest', {
+                "appId": payParams.appId,
+                "timeStamp": payParams.timeStamp,
+                "nonceStr": payParams.nonceStr,
+                "package": payParams.package,
+                "signType": payParams.signType,
+                "paySign": payParams.paySign
+              }, (res) => {
+                if (res.err_msg == "get_brand_wcpay_request:ok") {
+                  // 支付成功
+                  alert('支付成功');
+                  // 刷新订单列表
+                  this.fetchOrders();
+                } else {
+                  // 支付失败或取消
+                  alert('支付失败或已取消');
+                }
+              });
+            } else {
+              alert('请在微信客户端中打开');
+            }
+          } else {
+            this.isPaying = false;
+            alert('微信支付创建失败: ' + (result.message || '未知错误'));
+          }
         }
       } catch (error) {
         console.error('支付失败:', error);

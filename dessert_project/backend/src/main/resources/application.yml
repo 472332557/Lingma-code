@@ -42,7 +42,7 @@ jwt:
 wx:
   pay:
     # 微信支付商户号
-    mch-id: your_mch_id
+    mch-id: 1900000000
     # 微信支付商户密钥
     mch-key: your_mch_key
     # 微信支付appId
@@ -51,6 +51,16 @@ wx:
     api-url: https://api.mch.weixin.qq.com
     # 支付通知地址
     notify-url: http://localhost:8080/api/payment/wechat/notify
+    # 商户证书序列号
+    merchant-serial-number: your_merchant_serial_number
+    # APIv3密钥
+    api-v3-key: your_api_v3_key
+    # 商户私钥路径
+    private-key-path: classpath:cert/apiclient_key.pem
+    # 商户证书路径
+    merchant-cert-path: classpath:cert/apiclient_cert.pem
+    # 微信支付平台证书路径
+    wechatpay-cert-path: classpath:cert/wechatpay_cert.pem
 
 # 支付宝支付配置
 alipay:
