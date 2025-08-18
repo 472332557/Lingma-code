@@ -416,15 +416,44 @@ export default {
     /**
      * 跳转到商品详情
      */
-    goToProductDetail(productId) {
-      // 找到选中的商品
-      const product = this.allProducts.find(p => p.id === productId);
-      if (product) {
-        this.selectedProduct = product;
-        this.productSpecs = product.specs || [];
-        this.selectedSpec = this.productSpecs.length > 0 ? this.productSpecs[0] : null;
-        this.modalQuantity = 1;
-        this.showSpecModal = true;
+    async goToProductDetail(productId) {
+      console.log('点击商品，ID:', productId);
+      try {
+        // 调用后端API获取商品详情
+        const response = await fetch(`/api/order/dessert-detail?dessertId=${productId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': localStorage.getItem('token') || ''
+          }
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('获取商品详情响应:', result);
+          if (result.code === 200) {
+            const product = result.data.dessert;
+            const specs = result.data.specs || [];
+            console.log('找到商品:', product);
+            this.selectedProduct = product;
+            this.productSpecs = specs;
+            this.selectedSpec = specs.length > 0 ? specs[0] : null;
+            this.modalQuantity = 1;
+            this.showSpecModal = true;
+          } else {
+            console.error('获取商品详情失败:', result.message);
+            this.showMessage('获取商品详情失败: ' + (result.message || '未知错误'));
+          }
+        } else if (response.status === 401) {
+          this.showMessage('登录已过期，请重新登录');
+          this.$router.push('/login');
+        } else {
+          const errorText = await response.text();
+          console.error('获取商品详情失败，响应内容:', errorText);
+          this.showMessage('获取商品详情失败: ' + errorText);
+        }
+      } catch (error) {
+        console.error('获取商品详情异常:', error);
+        this.showMessage('获取商品详情失败，请稍后重试');
       }
     },
     
@@ -631,6 +660,9 @@ export default {
     closePaymentModal() {
       this.showPaymentModal = false;
       this.paymentUrl = '';
+      this.paymentAmount = 0;
+      this.paymentOrderId = 0;
+      this.paymentOrderNumber = '';
       
       // 检查支付状态
       setTimeout(() => {
@@ -821,7 +853,7 @@ export default {
       }
     }
   }
-};
+}
 </script>
 
 <style scoped>
@@ -1209,7 +1241,14 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 9999; /* 大幅提高z-index值 */
+  overflow: hidden;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal-content {
@@ -1219,6 +1258,15 @@ export default {
   max-width: 400px;
   max-height: 80%;
   overflow-y: auto;
+  position: relative;
+  z-index: 10000; /* 确保内容也在上层 */
+  transform: translateZ(0); /* 触发GPU渲染，提高显示层级 */
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(50px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 .modal-header {
