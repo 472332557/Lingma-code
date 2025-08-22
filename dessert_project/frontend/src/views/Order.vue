@@ -378,7 +378,9 @@ export default {
       // 待支付的订单信息
       pendingPaymentOrderId: 0,
       pendingPaymentAmount: 0,
-      pendingPaymentOrderNumber: ''
+      pendingPaymentOrderNumber: '',
+      // 消息弹窗回调函数
+      messageCallback: null
     };
   },
   computed: {
@@ -625,9 +627,14 @@ export default {
             const orderId = result.data.orderId;
             const totalAmount = result.data.totalAmount;
             const orderNumber = result.data.orderNumber;
-            this.showMessage('订单创建成功，准备跳转到支付页面');
-            // 跳转到支付页面
-            this.openPaymentModal(orderId, totalAmount, orderNumber);
+            // 保存待支付订单信息
+            this.pendingPaymentOrderId = orderId;
+            this.pendingPaymentAmount = Number(totalAmount) || 0;
+            this.pendingPaymentOrderNumber = orderNumber || '';
+            // 显示订单创建成功消息，等用户点击"我知道了"后再显示支付方式选择
+            this.showMessageWithCallback('订单创建成功，准备跳转到支付页面', () => {
+              this.showPaymentMethodModal = true;
+            });
           } else {
             this.showMessage('创建订单失败: ' + (result.message || '未知错误'));
           }
@@ -699,34 +706,21 @@ export default {
         const result = await response.json();
         
         if (result.code === 200) {
-          // 微信支付参数
-          const payParams = result.data;
+          // 获取微信支付链接
+          const paymentUrl = result.data.paymentUrl; // 假设后端返回支付链接
           
-          // 调用微信支付JSAPI
-          if (typeof WeixinJSBridge !== "undefined") {
-            WeixinJSBridge.invoke('getBrandWCPayRequest', {
-              "appId": payParams.appId,
-              "timeStamp": payParams.timeStamp,
-              "nonceStr": payParams.nonceStr,
-              "package": payParams.package,
-              "signType": payParams.signType,
-              "paySign": payParams.paySign
-            }, (res) => {
-              if (res.err_msg == "get_brand_wcpay_request:ok") {
-                // 支付成功
-                this.showMessage('支付成功');
-                // 可以跳转到支付成功页面或刷新订单状态
-                setTimeout(() => {
-                  this.$router.push('/orders');
-                }, 2000);
-              } else {
-                // 支付失败或取消
-                this.showMessage('支付失败或已取消');
-              }
-            });
-          } else {
-            this.showMessage('请在微信客户端中打开');
-          }
+          // 在新窗口中打开支付页面
+          const paymentWindow = window.open(paymentUrl, '_blank');
+          
+          // 关闭消息提示
+          setTimeout(() => {
+            this.closeMessageModal();
+          }, 2000);
+          
+          // 监听支付完成状态
+          setTimeout(() => {
+            this.checkPaymentStatus(orderId);
+          }, 5000);
         } else {
           this.showMessage('微信支付创建失败: ' + (result.message || '未知错误'));
         }
@@ -761,14 +755,20 @@ export default {
           const blob = new Blob([html], { type: 'text/html' });
           const url = window.URL.createObjectURL(blob);
           
-          // 在弹窗中显示支付页面
-          this.paymentUrl = url;
-          this.paymentAmount = amount;
-          this.paymentOrderId = orderId;
-          this.paymentOrderNumber = this.pendingPaymentOrderNumber; // 使用之前保存的订单号
-          this.showPaymentModal = true;
+          // 在新窗口中打开支付页面
+          const paymentWindow = window.open('', '_blank');
+          paymentWindow.document.write(html);
+          paymentWindow.document.close();
           
-          this.showMessage('支付页面已打开，请在支付宝页面完成支付');
+          // 关闭消息提示
+          setTimeout(() => {
+            this.closeMessageModal();
+          }, 2000);
+          
+          // 监听支付完成状态
+          setTimeout(() => {
+            this.checkPaymentStatus(orderId);
+          }, 5000);
         } else if (response.status === 400) {
           const errorText = await response.text();
           this.showMessage('支付创建失败: ' + errorText);
@@ -824,12 +824,26 @@ export default {
     showMessage(text) {
       this.messageText = text || '';
       this.showMessageModal = true;
+      this.messageCallback = null; // 清除回调
+    },
+    
+    // 带回调的消息弹窗
+    showMessageWithCallback(text, callback) {
+      this.messageText = text || '';
+      this.showMessageModal = true;
+      this.messageCallback = callback; // 保存回调函数
     },
     
     // 关闭消息弹窗
     closeMessageModal() {
       this.showMessageModal = false;
       this.messageText = '';
+      // 如果有回调函数，执行它
+      if (this.messageCallback) {
+        const callback = this.messageCallback;
+        this.messageCallback = null;
+        callback();
+      }
     },
 
     /**
@@ -1399,3 +1413,4 @@ export default {
   font-size: 16px;
   color: #333;
 }
+</style>

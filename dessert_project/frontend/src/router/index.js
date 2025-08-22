@@ -14,8 +14,8 @@ import Profile from '@/views/Profile.vue';
 const routes = [
   {
     path: '/',
-    name: 'RootRedirect',
-    redirect: '/login'
+    name: 'Home',
+    component: Home
   },
   {
     path: '/login',
@@ -24,8 +24,8 @@ const routes = [
   },
   {
     path: '/home',
-    name: 'Home',
-    component: Home
+    name: 'HomeRedirect',
+    redirect: '/'
   },
   {
     path: '/register',
@@ -52,6 +52,11 @@ const routes = [
     name: 'Profile',
     component: Profile
   },
+  {
+    path: '/category/:id',
+    name: 'Category',
+    component: Order // 复用Order组件显示分类详情
+  }
   
 ];
 
@@ -66,8 +71,12 @@ router.beforeEach((to, from, next) => {
   // 获取token
   const token = localStorage.getItem('token');
   
-  // 如果访问的不是登录页和注册页，且没有token，则跳转到登录页
-  if (to.name !== 'Login' && to.name !== 'Register' && to.name !== 'ResetPassword' && !token) {
+  // 允许访问的公开页面（不需要登录）
+  const publicPages = ['Home', 'Login', 'Register', 'ResetPassword'];
+  const isPublicPage = publicPages.includes(to.name);
+  
+  // 如果访问的不是公开页面，且没有token，则跳转到登录页
+  if (!isPublicPage && !token) {
     next({ name: 'Login' });
   } else {
     // 否则正常跳转

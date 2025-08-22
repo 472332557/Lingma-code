@@ -160,4 +160,65 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         
         return order;
     }
+    
+    /**
+     * 取消订单
+     * @param orderId 订单ID
+     * @return 是否取消成功
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean cancelOrder(Long orderId) {
+        // 查询订单
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            return false;
+        }
+        
+        // 只有待支付的订单才能取消
+        if (order.getStatus() != 0) {
+            return false;
+        }
+        
+        // 更新订单状态为已取消
+        order.setStatus(2);
+        order.setUpdateTime(LocalDateTime.now());
+        
+        return orderMapper.updateById(order) > 0;
+    }
+    
+    /**
+     * 检查并取消超时未支付的订单
+     * @param timeoutMinutes 超时时间（分钟）
+     * @return 取消的订单数量
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int cancelTimeoutOrders(int timeoutMinutes) {
+        // 计算超时时间点
+        LocalDateTime timeoutTime = LocalDateTime.now().minusMinutes(timeoutMinutes);
+        
+        // 查询超时未支付的订单
+        QueryWrapper<Order> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("status", 0) // 待支付状态
+                   .lt("create_time", timeoutTime); // 创建时间小于超时时间点
+        
+        List<Order> timeoutOrders = orderMapper.selectList(queryWrapper);
+        
+        if (timeoutOrders.isEmpty()) {
+            return 0;
+        }
+        
+        // 批量更新订单状态为已取消
+        int canceledCount = 0;
+        for (Order order : timeoutOrders) {
+            order.setStatus(2); // 已取消
+            order.setUpdateTime(LocalDateTime.now());
+            if (orderMapper.updateById(order) > 0) {
+                canceledCount++;
+            }
+        }
+        
+        return canceledCount;
+    }
 }

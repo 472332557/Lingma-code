@@ -53,6 +53,13 @@
               支付宝支付
             </button>
             <button 
+              class="action-button cancel-order-button"
+              v-if="order.status === 0"
+              @click="cancelOrder(order.id)"
+            >
+              取消订单
+            </button>
+            <button 
               class="action-button"
               v-if="order.status === 3"
               @click="buyAgain(order.id)"
@@ -99,34 +106,6 @@
         <p>正在创建支付订单...</p>
       </div>
     </div>
-    
-    <!-- 支付弹窗 -->
-    <div class="modal" v-if="showPaymentModal" @click="closePaymentModal">
-      <div class="payment-modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>支付宝支付</h3>
-          <button class="close-button" @click="closePaymentModal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="payment-info">
-            <p>订单号: {{ paymentOrderNumber }}</p>
-            <p>支付金额: ¥{{ paymentAmount }}</p>
-          </div>
-          <div class="payment-iframe-container">
-            <iframe 
-              :src="paymentUrl" 
-              class="payment-iframe"
-              v-if="paymentUrl"
-            ></iframe>
-            <div v-else class="loading">支付页面加载中...</div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="cancel-button" @click="closePaymentModal">取消支付</button>
-          <button class="check-payment-button" @click="checkPaymentStatus(paymentOrderId)">检查支付状态</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -143,13 +122,7 @@ export default {
       // 当前激活的tab
       activeTab: 'orders',
       // 支付状态
-      isPaying: false,
-      // 支付弹窗
-      showPaymentModal: false,
-      paymentUrl: '',
-      paymentAmount: 0,
-      paymentOrderNumber: '',
-      paymentOrderId: 0
+      isPaying: false
     };
   },
   mounted() {
@@ -226,19 +199,23 @@ export default {
           if (response.ok) {
             this.isPaying = false;
             
-            // 获取HTML响应并显示在弹窗中
+            // 获取HTML响应并显示
             const html = await response.text();
             
-            // 创建支付页面
-            const blob = new Blob([html], { type: 'text/html' });
-            const url = window.URL.createObjectURL(blob);
+            // 在新窗口中打开支付页面（与Order.vue保持一致）
+            const paymentWindow = window.open('', '_blank');
+            paymentWindow.document.write(html);
+            paymentWindow.document.close();
             
-            // 在弹窗中显示支付页面
-            this.paymentUrl = url;
-            this.paymentAmount = amount;
-            this.paymentOrderId = orderId;
-            this.paymentOrderNumber = 'ORDER_' + orderId; // 示例订单号
-            this.showPaymentModal = true;
+            // 监听支付完成状态
+            setTimeout(() => {
+              this.checkPaymentStatus(orderId);
+            }, 5000);
+            
+            // 刷新订单列表
+            setTimeout(() => {
+              this.fetchOrders();
+            }, 10000);
           } else if (response.status === 400) {
             this.isPaying = false;
             const errorText = await response.text();
@@ -301,44 +278,41 @@ export default {
         this.isPaying = false;
       }
     },
-    
-    /**
-     * 关闭支付弹窗
-     */
-    closePaymentModal() {
-      this.showPaymentModal = false;
-      this.paymentUrl = '';
-      this.paymentAmount = 0;
-      this.paymentOrderId = 0;
-      this.paymentOrderNumber = '';
-      
-      // 检查支付状态
-      setTimeout(() => {
-        this.checkPaymentStatus(this.paymentOrderId);
-      }, 2000);
-    },
+
     
     /**
      * 检查支付状态
      */
-    checkPaymentStatus(orderId) {
-      // 实际项目中这里会调用后端API检查支付状态
-      // 示例代码：
-      // try {
-      //   const response = await api.get(`/api/order/${orderId}/status`);
-      //   if (response.data.code === 200) {
-      //     if (response.data.data.status === 1) {
-      //       alert('支付成功');
-      //     } else {
-      //       alert('支付未完成，请继续支付或取消订单');
-      //     }
-      //   }
-      // } catch (error) {
-      //   console.error('检查支付状态失败:', error);
-      //   alert('检查支付状态失败');
-      // }
-      
-      alert('支付状态检查完成');
+    async checkPaymentStatus(orderId) {
+      try {
+        // 调用后端API检查支付状态
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/user/order/${orderId}/status`, {
+          method: 'GET',
+          headers: {
+            'Authorization': token
+          }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.code === 200) {
+            const orderStatus = result.data.status;
+            if (orderStatus === 1) {
+              alert('支付成功');
+              // 刷新订单列表
+              this.fetchOrders();
+            } else if (orderStatus === 2) {
+              alert('订单已取消');
+              this.fetchOrders();
+            } else {
+              console.log('订单状态:', orderStatus, '支付可能未完成');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('检查支付状态失败:', error);
+      }
     },
 
     /**
@@ -347,6 +321,49 @@ export default {
     buyAgain(orderId) {
       // 实际项目中这里会将订单中的商品添加到购物车
       alert(`再次购买订单 ${orderId}`);
+    },
+
+    /**
+     * 取消订单
+     */
+    async cancelOrder(orderId) {
+      try {
+        if (!confirm('确定要取消这个订单吗？')) {
+          return;
+        }
+        
+        this.isPaying = true;
+        
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/user/order/cancel/${orderId}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': token
+          }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.code === 200) {
+            alert('订单取消成功');
+            // 刷新订单列表
+            this.fetchOrders();
+          } else {
+            alert('取消订单失败: ' + (result.message || '未知错误'));
+          }
+        } else if (response.status === 401) {
+          alert('登录已过期，请重新登录');
+          this.$router.push('/login');
+        } else {
+          const errorText = await response.text();
+          alert('取消订单失败: ' + errorText);
+        }
+      } catch (error) {
+        console.error('取消订单失败:', error);
+        alert('取消订单失败，请稍后重试');
+      } finally {
+        this.isPaying = false;
+      }
     },
 
     /**
@@ -528,6 +545,15 @@ export default {
   background-color: #ecf5ff;
 }
 
+.cancel-order-button {
+  color: #f56c6c !important;
+  border-color: #f56c6c !important;
+}
+
+.cancel-order-button:hover {
+  background-color: #fef0f0 !important;
+}
+
 .footer-nav {
   display: flex;
   position: fixed;
@@ -593,103 +619,6 @@ export default {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
-}
-
-/* 弹窗样式 */
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px;
-  border-bottom: 1px solid #eee;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #333;
-}
-
-.close-button {
-  font-size: 24px;
-  color: #999;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-.modal-body {
-  padding: 15px;
-}
-
-.payment-info {
-  padding: 15px;
-  background-color: #f5f5f5;
-  border-radius: 4px;
-  margin-bottom: 15px;
-}
-
-.payment-info p {
-  margin: 5px 0;
-  font-size: 16px;
-}
-
-.payment-iframe-container {
-  flex: 1;
-  min-height: 400px;
-}
-
-.payment-iframe {
-  width: 100%;
-  height: 100%;
-  min-height: 400px;
-  border: none;
-}
-
-.loading {
-  text-align: center;
-  padding: 50px;
-  color: #999;
-}
-
-.modal-footer {
-  padding: 15px;
-  border-top: 1px solid #eee;
-  text-align: right;
-}
-
-.cancel-button {
-  padding: 10px 20px;
-  font-size: 16px;
-  color: #ff4444;
-  background-color: #fff;
-  border: 1px solid #ff4444;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-right: 10px;
-}
-
-.check-payment-button {
-  padding: 10px 20px;
-  font-size: 16px;
-  color: #409eff;
-  background-color: #fff;
-  border: 1px solid #409eff;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
 /* 支付弹窗 */

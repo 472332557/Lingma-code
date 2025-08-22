@@ -11,6 +11,13 @@ import com.example.loginsystem.config.AlipayConfig;
 import com.example.loginsystem.config.WxPayConfig;
 import com.example.loginsystem.entity.Order;
 import com.example.loginsystem.service.OrderService;
+import com.wechat.pay.java.core.Config;
+import com.wechat.pay.java.core.RSAAutoCertificateConfig;
+import com.wechat.pay.java.service.payments.jsapi.JsapiService;
+import com.wechat.pay.java.service.payments.jsapi.model.Amount;
+import com.wechat.pay.java.service.payments.jsapi.model.Payer;
+import com.wechat.pay.java.service.payments.jsapi.model.PrepayRequest;
+import com.wechat.pay.java.service.payments.jsapi.model.PrepayResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +29,8 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
@@ -66,6 +75,51 @@ public class PaymentController {
                 return Result.error("订单金额不匹配");
             }
 
+            // 构造微信支付请求参数
+            PrepayRequest request = new PrepayRequest();
+            // 设置公众号ID
+            request.setAppid(wxPayConfig.getAppId());
+            // 设置商户号
+            request.setMchid(wxPayConfig.getMchId());
+            // 设置商品描述
+            request.setDescription("甜品订单-" + order.getOrderNumber());
+            // 设置商户订单号
+            request.setOutTradeNo(order.getOrderNumber());
+            // 设置交易结束时间
+            request.setTimeExpire(LocalDateTime.now().plusMinutes(30)
+                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")));
+            
+            // 设置附加数据
+            request.setAttach("甜品订单");
+            
+            // 设置通知地址
+            request.setNotifyUrl(wxPayConfig.getNotifyUrl());
+            
+            // 设置金额信息
+            Amount amountInfo = new Amount();
+            amountInfo.setTotal(amount.multiply(new BigDecimal(100)).intValue()); // 转换为分
+            amountInfo.setCurrency("CNY");
+            request.setAmount(amountInfo);
+            
+            // 设置支付者信息（示例openid）
+            Payer payer = new Payer();
+            payer.setOpenid("oUpF8uMuAJO_M2pxb1Q9zNjWeS6o"); // 示例openid，实际应从用户会话中获取
+            request.setPayer(payer);
+
+            // 初始化配置
+            Config config = new RSAAutoCertificateConfig.Builder()
+                    .merchantId(wxPayConfig.getMchId())
+                    .privateKeyFromPath(wxPayConfig.getPrivateKeyPath()) // 从配置文件中读取私钥路径
+                    .merchantSerialNumber(wxPayConfig.getMerchantSerialNumber()) // 从配置文件中读取证书序列号
+                    .apiV3Key(wxPayConfig.getApiV3Key()) // 从配置文件中读取APIv3密钥
+                    .build();
+
+            // 初始化服务
+            JsapiService service = new JsapiService.Builder().config(config).build();
+
+            // 发起微信支付请求
+            PrepayResponse response = service.prepay(request);
+            
             // 生成前端调用支付所需的参数
             Map<String, String> payParams = new HashMap<>();
             
@@ -79,7 +133,7 @@ public class PaymentController {
             payParams.put("nonceStr", generateNonceStr());
             
             // 订单详情扩展字符串
-            payParams.put("package", "prepay_id=" + generatePrepayId(order, amount));
+            payParams.put("package", "prepay_id=" + response.getPrepayId());
             
             // 签名方式
             payParams.put("signType", "RSA");
@@ -191,7 +245,8 @@ public class PaymentController {
             }
             String xmlData = sb.toString();
             
-            // 解析XML数据
+            // 实际项目中需要解析XML格式的回调数据
+            // 解析商户订单号和支付结果
             String outTradeNo = parseOutTradeNoFromXml(xmlData); // 商户订单号
             String resultCode = parseResultCodeFromXml(xmlData); // 业务结果
             

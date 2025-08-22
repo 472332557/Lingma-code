@@ -38,6 +38,13 @@ jwt:
   # token在header中的名称
   header: Authorization
 
+# 订单配置
+order:
+  # 订单超时时间（分钟），超过此时间未支付的订单将自动取消
+  timeout-minutes: 30
+  # 定时任务执行间隔（分钟），每隔此时间检查一次超时订单
+  check-interval-minutes: 5
+
 # 微信支付配置
 wx:
   pay:

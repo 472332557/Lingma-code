@@ -110,6 +110,12 @@
             <version>4.22.110.ALL</version>
         </dependency>
         
+        <!-- 微信支付SDK -->
+        <dependency>
+            <groupId>com.github.wechatpay-apiv3</groupId>
+            <artifactId>wechatpay-java</artifactId>
+            <version>0.2.7</version>
+        </dependency>
     </dependencies>
     
     <build>

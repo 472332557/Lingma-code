@@ -9,9 +9,27 @@
     </div>
 
     <!-- 轮播图 -->
-    <div class="banner">
-      <div class="banner-item" v-for="banner in banners" :key="banner.id">
-        <img :src="banner.imageUrl" :alt="banner.title" class="banner-image">
+    <div class="banner" v-if="banners.length > 0">
+      <div class="banner-container">
+        <div 
+          class="banner-item" 
+          v-for="(banner, index) in banners" 
+          :key="banner.id"
+          :class="{ active: index === currentBannerIndex }"
+          @click="onBannerClick(banner)"
+        >
+          <img :src="banner.imageUrl" :alt="'轮播图' + (index + 1)" class="banner-image">
+        </div>
+      </div>
+      <!-- 指示器 -->
+      <div class="banner-indicators" v-if="banners.length > 1">
+        <span 
+          v-for="(banner, index) in banners" 
+          :key="index"
+          class="indicator"
+          :class="{ active: index === currentBannerIndex }"
+          @click="goToBanner(index)"
+        ></span>
       </div>
     </div>
 
@@ -87,6 +105,10 @@ export default {
     return {
       // 轮播图数据
       banners: [],
+      // 当前轮播图索引
+      currentBannerIndex: 0,
+      // 轮播图定时器
+      bannerTimer: null,
       // 甜品系列分类
       dessertSeries: [
         { id: 1, name: '女神系列' },
@@ -113,6 +135,12 @@ export default {
     // 页面加载时获取轮播图数据
     this.fetchBanners();
   },
+  beforeUnmount() {
+    // 组件销毁时清除定时器
+    if (this.bannerTimer) {
+      clearInterval(this.bannerTimer);
+    }
+  },
   methods: {
     /**
      * 获取轮播图数据
@@ -122,6 +150,10 @@ export default {
         const response = await getEnabledBanners();
         if (response.code === 200) {
           this.banners = response.data;
+          // 如果有多个轮播图，启动自动轮播
+          if (this.banners.length > 1) {
+            this.startBannerAutoPlay();
+          }
         } else {
           console.error('获取轮播图失败:', response.message);
         }
@@ -133,6 +165,38 @@ export default {
           { id: 2, imageUrl: 'https://via.placeholder.com/400x200?text=Banner+2' },
           { id: 3, imageUrl: 'https://via.placeholder.com/400x200?text=Banner+3' }
         ];
+        this.startBannerAutoPlay();
+      }
+    },
+    
+    /**
+     * 启动轮播图自动播放
+     */
+    startBannerAutoPlay() {
+      this.bannerTimer = setInterval(() => {
+        this.currentBannerIndex = (this.currentBannerIndex + 1) % this.banners.length;
+      }, 3000); // 每3秒切换一次
+    },
+    
+    /**
+     * 跳转到指定轮播图
+     */
+    goToBanner(index) {
+      this.currentBannerIndex = index;
+      // 重新启动自动播放
+      if (this.bannerTimer) {
+        clearInterval(this.bannerTimer);
+        this.startBannerAutoPlay();
+      }
+    },
+    
+    /**
+     * 轮播图点击事件
+     */
+    onBannerClick(banner) {
+      if (banner.linkUrl) {
+        // 如果有跳转链接，则跳转
+        window.open(banner.linkUrl, '_blank');
       }
     },
     
@@ -140,7 +204,15 @@ export default {
      * 跳转到个人中心
      */
     goToProfile() {
-      this.$router.push('/profile');
+      // 检查是否已登录
+      const token = localStorage.getItem('token');
+      if (!token) {
+        // 未登录，跳转到登录页
+        this.$router.push('/login');
+      } else {
+        // 已登录，跳转到个人中心
+        this.$router.push('/profile');
+      }
     },
 
     /**
@@ -155,6 +227,18 @@ export default {
      */
     setActiveTab(tab) {
       this.activeTab = tab;
+      
+      // 检查是否需要登录才能访问
+      const needLogin = ['order', 'orders', 'profile'];
+      if (needLogin.includes(tab)) {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          // 未登录，跳转到登录页
+          this.$router.push('/login');
+          return;
+        }
+      }
+      
       switch (tab) {
         case 'home':
           this.$router.push('/');
@@ -209,15 +293,51 @@ export default {
   position: relative;
 }
 
-.banner-item {
+.banner-container {
+  position: relative;
   width: 100%;
   height: 100%;
+}
+
+.banner-item {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+  cursor: pointer;
+}
+
+.banner-item.active {
+  opacity: 1;
 }
 
 .banner-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.banner-indicators {
+  position: absolute;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+}
+
+.indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.indicator.active {
+  background-color: rgba(255, 255, 255, 0.9);
 }
 
 .section {

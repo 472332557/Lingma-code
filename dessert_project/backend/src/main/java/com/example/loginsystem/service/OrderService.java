@@ -27,4 +27,18 @@ public interface OrderService extends IService<Order> {
      * @return 创建的订单
      */
     Order createOrder(Long userId, PaymentRequestDTO paymentRequest);
+    
+    /**
+     * 取消订单
+     * @param orderId 订单ID
+     * @return 是否取消成功
+     */
+    boolean cancelOrder(Long orderId);
+    
+    /**
+     * 检查并取消超时未支付的订单
+     * @param timeoutMinutes 超时时间（分钟）
+     * @return 取消的订单数量
+     */
+    int cancelTimeoutOrders(int timeoutMinutes);
 }
